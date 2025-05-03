@@ -50,6 +50,7 @@ import ModuleCard from "./components/ModuleCard";
 import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
 import { fetchActiveModules, fetchModules } from "./data/modules";
+import Toolbar from "./components/Toolbar";
 
 // Project type
 interface Project {
@@ -857,7 +858,8 @@ function EditorPage() {
           </div>
         </header>
         <main className="flex flex-1 h-[calc(100vh-var(--header-height)-var(--footer-height))]">
-          <div className="flex-1 flex items-stretch">
+        <Toolbar />
+        <div className="flex-1 flex items-stretch">
             <div className="flex-1 bg-gradient-to-br from-background via-muted to-background">
               <RoomVisualization
                 roomDimensions={roomDimensions}
