@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
-import type { Module } from "../types";
+import type { Module } from "../../types";
 
 interface PlacedModuleProps {
   id: string;

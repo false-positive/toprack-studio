@@ -1,8 +1,7 @@
+import { Card } from "@/components/ui/card";
 import { useState } from "react";
 import { useDrag } from "react-dnd";
 import type { Module } from "../../types";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 
 interface ModuleLibraryProps {
   modules: Module[];

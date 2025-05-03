@@ -1,6 +1,6 @@
+import L from "leaflet";
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
-import L from "leaflet";
 
 interface WallDimensionsProps {
   walls: Array<{ start: [number, number]; end: [number, number] }>;
@@ -12,7 +12,7 @@ export default function WallDimensions({ walls }: WallDimensionsProps) {
   useEffect(() => {
     const dimensionLayers: L.Layer[] = [];
 
-    walls.forEach((wall, index) => {
+    walls.forEach((wall) => {
       // Calculate midpoint of the wall
       const midX = (wall.start[0] + wall.end[0]) / 2;
       const midY = (wall.start[1] + wall.end[1]) / 2;
