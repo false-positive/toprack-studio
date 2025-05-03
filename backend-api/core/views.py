@@ -306,6 +306,14 @@ def create_data_center(request):
         name = request.data.get('name', 'Default Data Center')
         clean_db = request.data.get('clean_db', 'false').lower() == 'true'
         
+        # Check if a data center with this name already exists
+        if DataCenter.objects.filter(name=name).exists():
+            return Response({
+                "status": "error",
+                "status_code": status.HTTP_400_BAD_REQUEST,
+                "message": f"A data center with the name '{name}' already exists"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         # Get uploaded files
         modules_file = request.FILES.get('modules_csv')
         components_file = request.FILES.get('components_csv')
