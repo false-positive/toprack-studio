@@ -4,12 +4,11 @@ class Module(models.Model):
     name = models.CharField(max_length=255)
     is_input = models.BooleanField()
     is_output = models.BooleanField()
+
+class ModuleAttribute(models.Model):
+    module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='attributes')
     unit = models.CharField(max_length=255)
     amount = models.IntegerField()
-
-    def __str__(self):
-        return f"Module {self.name}"
-
 
 class ActiveModule(models.Model):
     x = models.IntegerField()

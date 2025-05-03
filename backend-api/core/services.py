@@ -1,4 +1,4 @@
-from .models import Module, ActiveModule, DataCenterSpecs, DataCenterValue
+from .models import Module, ActiveModule, DataCenterSpecs, DataCenterValue, ModuleAttribute
 from django.db.models import Sum
 from django.db import transaction
 import logging
@@ -34,10 +34,9 @@ class ActiveModuleService:
             return None
     
     @staticmethod
-    @transaction.atomic
     def create_active_module(data):
         """
-        Create a new active module and recalculate all DataCenterValues
+        Create a new active module without validation
         """
         try:
             module_id = data.pop('module').id if isinstance(data.get('module'), Module) else data.pop('module')
@@ -46,73 +45,34 @@ class ActiveModuleService:
             for field in Module._meta.fields:
                 logger.info(f"Module {field.name}: {getattr(module, field.name)}")
             
-            # Create the active module in a transaction
+            # Create the active module
             active_module = ActiveModule.objects.create(module=module, **data)
-            
-            # Recalculate all data center values
-            DataCenterValueService.recalculate_all_values()
-            
-            validation_result = DataCenterSpecsService.validate_current_values()
-            
-            if not validation_result:
-                for value in DataCenterValue.objects.all():
-                    logger.error(f"Current value for {value.unit}: {value.value}")
-                
-                # Log all specs for comparison
-                logger.error("Data center specifications:")
-                for spec in DataCenterSpecs.objects.all():
-                    constraint_desc = []
-                    if spec.below_amount == 1:
-                        constraint_desc.append(f"below {spec.amount}")
-                    if spec.above_amount == 1:
-                        constraint_desc.append(f"above {spec.amount}")
-                    if spec.minimize == 1:
-                        constraint_desc.append("minimize")
-                    if spec.maximize == 1:
-                        constraint_desc.append("maximize")
-                    if spec.unconstrained == 1:
-                        constraint_desc.append("unconstrained")
-                    
-                    logger.error(f"Spec for {spec.unit}: should be {', '.join(constraint_desc)}")
-                
-                transaction.set_rollback(True)
-                raise ValueError("Adding this module would violate data center specifications")
+            logger.info(f"Created active module ID={active_module.id}, Module={module.name}, at ({data.get('x')}, {data.get('y')})")
             
             return active_module
         except Module.DoesNotExist:
             logger.error(f"Module with ID {module_id} does not exist")
-            transaction.set_rollback(True)
             raise ValueError(f"Module with ID {module_id} does not exist")
         except Exception as e:
             logger.error(f"Error in create_active_module: {str(e)}", exc_info=True)
-            transaction.set_rollback(True)
             raise
     
     @staticmethod
-    @transaction.atomic
     def delete_active_module(active_module_id):
-        """Delete an active module and recalculate values"""
+        """Delete an active module without recalculation"""
         try:
             active_module = ActiveModule.objects.get(id=active_module_id)
             logger.info(f"Deleting active module ID={active_module_id}, Module={active_module.module.name}, Unit={active_module.module.unit}")
             
             active_module.delete()
-            
-            # Recalculate all data center values
-            logger.info("Recalculating data center values after deletion")
-            DataCenterValueService.recalculate_all_values()
-            
-            # Validate against specs (optional for deletion, but might be needed in some cases)
-            if not DataCenterSpecsService.validate_current_values():
-                logger.error("Validation failed after deletion, rolling back transaction")
-                transaction.set_rollback(True)
-                raise ValueError("Removing this module would violate data center specifications")
+            logger.info(f"Successfully deleted active module ID={active_module_id}")
                 
             return True
         except ActiveModule.DoesNotExist:
+            logger.error(f"Active module with ID {active_module_id} does not exist")
             return False
-        except ValueError as e:
-            # Handle the validation error
+        except Exception as e:
+            logger.error(f"Error deleting active module: {str(e)}", exc_info=True)
             return False
 
 class DataCenterValueService:
@@ -140,22 +100,22 @@ class DataCenterValueService:
             elif unit == 'Space_Y':
                 default_value = 2000
                 
-            value, created = DataCenterValue.objects.get_or_create(
-                unit=unit,
-                defaults={'value': default_value}
-            )
-            
-            if not created:
+            # Try to get existing value
+            try:
+                value = DataCenterValue.objects.get(unit=unit)
                 # Update existing value if it's Space_X or Space_Y
                 if unit == 'Space_X':
                     value.value = 3000
                     value.save()
+                    logger.info(f"Updated DataCenterValue for {unit}: {value.value}")
                 elif unit == 'Space_Y':
                     value.value = 2000
                     value.save()
-                    
-            action = "Created" if created else "Updated"
-            logger.info(f"{action} DataCenterValue for {unit}: {value.value}")
+                    logger.info(f"Updated DataCenterValue for {unit}: {value.value}")
+            except DataCenterValue.DoesNotExist:
+                # Create new value
+                value = DataCenterValue.objects.create(unit=unit, value=default_value)
+                logger.info(f"Created DataCenterValue for {unit}: {value.value}")
         
         return DataCenterValue.objects.all()
     
@@ -163,42 +123,44 @@ class DataCenterValueService:
     def recalculate_all_values():
         """Recalculate all values based on active modules"""
         # Get all active modules
-        active_modules = ActiveModule.objects.all()
+        active_modules = ActiveModule.objects.all().select_related('module')
         
         # Create a dictionary to store unit totals
         unit_totals = {}
         
         # Calculate totals for each unit
         for am in active_modules:
-            unit = am.module.unit
-            amount = am.module.amount
+            # Get all attributes for this module
+            attributes = ModuleAttribute.objects.filter(module=am.module)
             
-            if unit in unit_totals:
-                unit_totals[unit] += amount
-                logger.debug(f"Adding {amount} to existing total for {unit}, new total: {unit_totals[unit]}")
-            else:
-                unit_totals[unit] = amount
-                logger.debug(f"Setting initial total for {unit}: {amount}")
+            for attr in attributes:
+                unit = attr.unit
+                amount = attr.amount
+                
+                if unit in unit_totals:
+                    unit_totals[unit] += amount
+                    logger.debug(f"Adding {amount} to existing total for {unit}, new total: {unit_totals[unit]}")
+                else:
+                    unit_totals[unit] = amount
+                    logger.debug(f"Setting initial total for {unit}: {amount}")
         
         logger.info(f"Calculated unit totals: {unit_totals}")
         
         # Update DataCenterValue objects
         for unit, total in unit_totals.items():
-            value_obj = DataCenterValueService.get_or_create_value(unit)
-            old_value = value_obj.value
+            try:
+                value_obj = DataCenterValue.objects.get(unit=unit)
+                old_value = value_obj.value
+            except DataCenterValue.DoesNotExist:
+                value_obj = DataCenterValue(unit=unit, value=0)
+                old_value = 0
             
             # For Space_X and Space_Y, we subtract from the initial value
             if unit in ['Space_X', 'Space_Y']:
-                # Get the initial value from specs
-                try:
-                    spec = DataCenterSpecs.objects.get(unit=unit)
-                    initial_value = spec.amount
-                    value_obj.value = initial_value - total
-                    logger.info(f"Unit {unit}: {initial_value} - {total} = {value_obj.value} (was {old_value})")
-                except DataCenterSpecs.DoesNotExist:
-                    # If no spec exists, just use the total
-                    value_obj.value = total
-                    logger.info(f"Unit {unit}: No spec found, using total {total} (was {old_value})")
+                # Get the initial value
+                initial_value = 3000 if unit == 'Space_X' else 2000
+                value_obj.value = initial_value - total
+                logger.info(f"Unit {unit}: {initial_value} - {total} = {value_obj.value} (was {old_value})")
             else:
                 # For other units, we just use the total
                 value_obj.value = total
@@ -290,19 +252,23 @@ class ModuleCalculationService:
         Calculate total resource usage based on active modules
         """
         if active_modules is None:
-            active_modules = ActiveModule.objects.all()
+            active_modules = ActiveModule.objects.all().select_related('module')
             
         # Group by unit and sum amounts
         unit_totals = {}
         for am in active_modules:
-            unit = am.module.unit
-            amount = am.module.amount
+            # Get all attributes for this module
+            attributes = ModuleAttribute.objects.filter(module=am.module)
             
-            if unit in unit_totals:
-                unit_totals[unit] += amount
-            else:
-                unit_totals[unit] = amount
+            for attr in attributes:
+                unit = attr.unit
+                amount = attr.amount
                 
+                if unit in unit_totals:
+                    unit_totals[unit] += amount
+                else:
+                    unit_totals[unit] = amount
+                    
         # Add all DataCenterValues to the result
         all_values = {value.unit: value.value for value in DataCenterValue.objects.all()}
         

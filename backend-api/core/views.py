@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Module, ActiveModule, DataCenterPoints
 from .serializers import ModuleSerializer, ActiveModuleSerializer, DataCenterPointsSerializer
-from .services import ModuleService, ActiveModuleService, ModuleCalculationService, DataCenterValueService
+from .services import ModuleService, ActiveModuleService, ModuleCalculationService, DataCenterValueService, DataCenterSpecsService
 import logging
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,27 @@ def calculate_resources(request):
 def recalculate_values(request):
     """API endpoint to recalculate all DataCenterValues"""
     DataCenterValueService.recalculate_all_values()
-    return Response({"status": "Values recalculated successfully"})
+    
+    # Optionally validate after recalculation
+    validation_result = DataCenterSpecsService.validate_current_values()
+    
+    return Response({
+        "status": "Values recalculated successfully",
+        "validation_passed": validation_result
+    })
+
+@api_view(['GET'])
+def validate_values(request):
+    """API endpoint to validate current DataCenterValues against specs"""
+    validation_result = DataCenterSpecsService.validate_current_values()
+    
+    if validation_result:
+        return Response({"status": "All specifications validated successfully"})
+    else:
+        return Response(
+            {"status": "Validation failed, see logs for details"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 @api_view(['POST'])
 def initialize_values(request):

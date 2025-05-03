@@ -6,7 +6,26 @@ The backend API provides the following endpoints:
 
 - `GET /api/modules/` - List all available modules
 
-  - Returns: List of all modules with their properties (name, is_input, is_output, unit, amount)
+  - Returns: List of all modules with their properties and attributes
+  - Example response:
+    ```json
+    [
+      {
+        "id": 1,
+        "name": "Transformer_100",
+        "is_input": true,
+        "is_output": false,
+        "attributes": {
+          "Grid_Connection": 1,
+          "Space_X": 40,
+          "Space_Y": 45,
+          "Price": 1000,
+          "Usable_Power": 100
+        }
+      },
+      ...
+    ]
+    ```
 
 ### Active Modules
 
