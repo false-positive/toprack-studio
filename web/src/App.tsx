@@ -21,7 +21,7 @@ import ModuleCard from "./components/ModuleCard";
 import L from "leaflet";
 import { ActiveModule } from "types";
 import Toolbar from "./components/Toolbar";
-import { Route, Routes } from "react-router";
+import { Route, Routes, Link } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -95,22 +95,6 @@ function SplashScreen() {
   function handleDeleteProject(id: number) {
     setProjects((prev) => prev.filter((p) => p.id !== id));
     setDeleteDialogOpen(null);
-  }
-
-  function handleOpenProject(id: number) {
-    setProjects((prev) => {
-      const now = new Date().toISOString();
-      const updated = prev.map((p) =>
-        p.id === id ? { ...p, lastOpenedAt: now } : p
-      );
-      // Move the opened project to the top
-      updated.sort(
-        (a, b) =>
-          new Date(b.lastOpenedAt).getTime() -
-          new Date(a.lastOpenedAt).getTime()
-      );
-      return updated;
-    });
   }
 
   // Helper to format relative time
@@ -205,12 +189,12 @@ function SplashScreen() {
                       Last opened: {formatRelativeTime(project.lastOpenedAt)}
                     </span>
                     <Button
+                      asChild
                       variant="secondary"
                       size="sm"
                       className="w-full mt-2"
-                      onClick={() => handleOpenProject(project.id)}
                     >
-                      Open Project
+                      <Link to={`/projects/${project.id}`}>Open Project</Link>
                     </Button>
                   </div>
                 </CardContent>
