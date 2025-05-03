@@ -81,11 +81,13 @@ function getModuleDimensions(name: string): {
 }
 
 // Helper function to determine module color from name
-function getModuleColor(name: string): string {
-  if (name.includes("Rack")) return "#3b82f6";
-  if (name.includes("Cooling") || name.includes("CRAC")) return "#06b6d4";
-  if (name.includes("UPS") || name.includes("Power")) return "#f59e0b";
+export function getModuleColor(name: string): string {
   if (name.includes("Network") || name.includes("Switch")) return "#10b981";
+  if (name.includes("Data")) return "#22c55e"; // Added a fresh green for data-related items
+  if (name.includes("Rack")) return "#ef4444"; // Changed to a vibrant red
+  if (name.includes("Water_Chiller") || name.includes("CRAC")) return "#06b6d4";
+  if (name.includes("Water")) return "#1e40af"; // supply - dark blue
+  if (name.includes("Transformer") || name.includes("Power")) return "#f59e0b";
   if (name.includes("Storage")) return "#8b5cf6";
   if (name.includes("Security")) return "#ec4899";
   return "#a1a1aa";

@@ -913,7 +913,7 @@ function EditorPage() {
               <div className="mb-6">
                 <h2 className="text-lg font-bold mb-4">Module Library</h2>
                 <Card>
-                  <CardContent>
+                  <CardContent className="space-y-2">
                     <div className="flex flex-col gap-2">
                       <Label
                         htmlFor="module-search"
