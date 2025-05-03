@@ -50,6 +50,7 @@ Represents a logical section of the data center (e.g., "Server_Square", "Dense_S
 
 - **Fields**:
   - `name`: Name of the component
+  - `data_center`: Foreign key to DataCenter
 
 ### DataCenterComponentAttribute
 
@@ -59,8 +60,8 @@ Defines constraints and specifications for a data center component.
   - `component`: Foreign key to DataCenterComponent
   - `unit`: Type of resource (e.g., "Space_X", "Processing")
   - `amount`: Base amount of the resource
-  - `below_amount`: Whether the value must be below this amount (0 or 1)
-  - `above_amount`: Whether the value must be above this amount (0 or 1)
+  - `below_amount`: Whether the value must be less than or equal to this amount (0 or 1)
+  - `above_amount`: Whether the value must be greater than or equal to this amount (0 or 1)
   - `minimize`: Whether this value should be minimized (0 or 1)
   - `maximize`: Whether this value should be maximized (0 or 1)
   - `unconstrained`: Whether this value has no constraints (0 or 1)
@@ -74,6 +75,16 @@ Represents a module placed at specific coordinates in the data center.
   - `data_center_component`: Foreign key to DataCenterComponent
   - `x`: X-coordinate position
   - `y`: Y-coordinate position
+  - `data_center`: Foreign key to DataCenter
+
+### DataCenter
+
+Represents a data center configuration.
+
+- **Fields**:
+  - `name`: Name of the data center
+  - `space_x`: Total available space in X dimension
+  - `space_y`: Total available space in Y dimension
 
 ### DataCenterValue
 
@@ -83,6 +94,7 @@ Tracks the current value of a resource for a component.
   - `component`: Foreign key to DataCenterComponent (null for global values)
   - `unit`: Type of resource
   - `value`: Current value of the resource
+  - `data_center`: Foreign key to DataCenter
 
 ### DataCenterPoints
 
@@ -91,6 +103,7 @@ Represents coordinate points in the data center.
 - **Fields**:
   - `x`: X-coordinate
   - `y`: Y-coordinate
+  - `data_center`: Foreign key to DataCenter
 
 ## Model Relationships and Logic
 
@@ -104,7 +117,7 @@ Represents coordinate points in the data center.
 
    - Each `DataCenterComponent` has multiple `DataCenterComponentAttribute` records
    - These attributes define constraints (minimum/maximum values) for different resources
-   - Example: Server_Square might require Processing > 1000 and Space_X < 1000
+   - Example: Server_Square might require Processing >= 1000 and Space_X <= 1000
 
 3. **Active Modules**:
 
@@ -124,8 +137,8 @@ Represents coordinate points in the data center.
 5. **Validation Logic**:
 
    - For each component, the system checks:
-     - `below_amount=1`: Value must be less than the specified amount
-     - `above_amount=1`: Value must be greater than the specified amount
+     - `below_amount=1`: Value must be less than or equal to the specified amount
+     - `above_amount=1`: Value must be greater than or equal to the specified amount
      - `minimize=1`: Value should be minimized (optimization goal)
      - `maximize=1`: Value should be maximized (optimization goal)
    - If any constraint is violated, validation fails
@@ -422,6 +435,16 @@ The backend API provides the following essential endpoints:
         "Data_Storage": 1200,
         "Price": 50000
       },
+      "data_center": {
+        "id": 1,
+        "name": "Default Data Center",
+        "space_x": 1000,
+        "space_y": 500,
+        "space_x_used": 150,
+        "space_y_used": 100,
+        "space_x_available": 850,
+        "space_y_available": 400
+      },
       "validation_passed": true,
       "violations": []
     }
@@ -438,9 +461,19 @@ The backend API provides the following essential endpoints:
         "Usable_Power": -80,
         "Processing": 0
       },
+      "data_center": {
+        "id": 1,
+        "name": "Default Data Center",
+        "space_x": 1000,
+        "space_y": 500,
+        "space_x_used": 80,
+        "space_y_used": 80,
+        "space_x_available": 920,
+        "space_y_available": 420
+      },
       "validation_passed": false,
       "violations": [
-        "Component Server_Square, Unit Processing value (0) is below minimum required (1000)"
+        "Component Server_Square: Processing value (0) should be greater than or equal to 1000"
       ]
     }
     ```
@@ -510,7 +543,7 @@ The backend API provides the following essential endpoints:
         }
       },
       "violations": [
-        "Component Server_Square, Unit Processing value (0) is below minimum required (1000)"
+        "Component Server_Square: Processing value (0) should be greater than or equal to 1000"
       ]
     }
     ```
@@ -532,7 +565,13 @@ The backend API provides the following essential endpoints:
       "status": "success",
       "status_code": 200,
       "message": "Values initialized successfully from components",
-      "count": 12
+      "count": 12,
+      "data_center": {
+        "id": 1,
+        "name": "Default Data Center",
+        "space_x": 1000,
+        "space_y": 500
+      }
     }
     ```
 
@@ -540,8 +579,8 @@ The backend API provides the following essential endpoints:
 
 The system supports several types of constraints:
 
-1. **Below Amount**: Value must be below threshold (e.g., Space_X < 1000)
-2. **Above Amount**: Value must be above threshold (e.g., Data_Storage > 1000)
+1. **Below Amount**: Value must be less than or equal to threshold (e.g., Space_X <= 1000)
+2. **Above Amount**: Value must be greater than or equal to threshold (e.g., Data_Storage >= 1000)
 3. **Minimize**: Try to minimize this value (optimization goal)
 4. **Maximize**: Try to maximize this value (optimization goal)
 5. **Unconstrained**: No specific constraint on this value

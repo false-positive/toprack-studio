@@ -1,5 +1,5 @@
 from .models import (
-    Module, ActiveModule, DataCenterValue, ModuleAttribute,
+    DataCenter, Module, ActiveModule, DataCenterValue, ModuleAttribute,
     DataCenterComponent, DataCenterComponentAttribute
 )
 from django.db.models import Sum, Q
@@ -48,16 +48,20 @@ class ActiveModuleService:
     """
     
     @staticmethod
-    def get_all_active_modules():
+    def get_all_active_modules(data_center=None):
         """
-        Get all active modules from the database.
+        Get all active modules from the database, optionally filtered by data center.
+        
+        Args:
+            data_center (DataCenter, optional): The data center to filter by.
+                If None, returns all active modules.
         
         Returns:
-            QuerySet: All ActiveModule objects in the database.
-            
-        Usage:
-            active_modules = ActiveModuleService.get_all_active_modules()
+            QuerySet: ActiveModule objects, optionally filtered by data center.
         """
+        if data_center:
+            # Filter by data_center_component's data_center instead of directly by data_center
+            return ActiveModule.objects.filter(data_center_component__data_center=data_center)
         return ActiveModule.objects.all()
     
     @staticmethod
@@ -96,7 +100,7 @@ class ActiveModuleService:
                 - x: X-coordinate (int)
                 - y: Y-coordinate (int)
                 - data_center_component: DataCenterComponent object or ID (optional)
-            
+                
         Returns:
             ActiveModule: The created ActiveModule object.
             
@@ -117,13 +121,27 @@ class ActiveModuleService:
                     component = DataCenterComponent.objects.get(id=component_id)
                     data['data_center_component'] = component
             
+            # Get data center from component or use default
+            data_center = None
+            if component and component.data_center:
+                data_center = component.data_center
+            else:
+                # Use default data center if none provided
+                data_center = DataCenter.get_default()
+                
+            # If component is provided but no data center, update component
+            if component and not component.data_center:
+                component.data_center = data_center
+                component.save()
+            
             for field in Module._meta.fields:
                 logger.info(f"Module {field.name}: {getattr(module, field.name)}")
             
             active_module = ActiveModule.objects.create(module=module, **data)
             
             component_name = component.name if component else "No component"
-            logger.info(f"Created active module ID={active_module.id}, Module={module.name}, Component={component_name}, at ({data.get('x')}, {data.get('y')})")
+            data_center_name = data_center.name if data_center else "No data center"
+            logger.info(f"Created active module ID={active_module.id}, Module={module.name}, Component={component_name}, DataCenter={data_center_name}, at ({data.get('x')}, {data.get('y')})")
             
             return active_module
         except Module.DoesNotExist:
@@ -160,8 +178,6 @@ class ActiveModuleService:
             active_module.delete()
             
             logger.info(f"Deleted active module ID={active_module_id}, Module={module_name}, Component={component_name}, at {position}")
-            
-            # Just delete the module without recalculating values or validating
             return True
         except ActiveModule.DoesNotExist:
             logger.error(f"ActiveModule with ID {active_module_id} does not exist")
@@ -177,34 +193,52 @@ class DataCenterValueService:
     """
     
     @staticmethod
-    def get_or_create_value(unit):
+    def get_or_create_value(unit, component=None, data_center=None):
         """
-        Get or create a DataCenterValue for a specific unit.
+        Get or create a DataCenterValue for a specific unit, component, and data center.
         
         Args:
             unit (str): The unit name (e.g., 'Space_X', 'Usable_Power').
+            component (DataCenterComponent, optional): The component to associate with the value.
+            data_center (DataCenter, optional): The data center to associate with the value.
             
         Returns:
             DataCenterValue: The existing or newly created DataCenterValue object.
         """
-        value, created = DataCenterValue.objects.get_or_create(unit=unit, defaults={'value': 0})
+        if data_center is None:
+            data_center = DataCenter.get_default()
+            
+        value, created = DataCenterValue.objects.get_or_create(
+            unit=unit, 
+            component=component, 
+            data_center=data_center, 
+            defaults={'value': 0}
+        )
         return value
     
     @staticmethod
-    def initialize_values_from_components():
+    def initialize_values_from_components(data_center=None):
         """
         Initialize DataCenterValue objects from unique units in DataCenterComponentAttributes.
         Sets initial values based on the constraints in the component attributes.
         
+        Args:
+            data_center (DataCenter, optional): The data center to initialize values for.
+                If None, uses the default data center.
+        
         Special cases:
-        - Space_X: Initialized to SPACE_X_INITIAL (total available space in X dimension)
-        - Space_Y: Initialized to SPACE_Y_INITIAL (total available space in Y dimension)
+        - Space_X: Initialized to 0 (representing used space)
+        - Space_Y: Initialized to 0 (representing used space)
         - Price: Initialized to 0
         - Units with above_amount=1: Initialized to 0 to force adding modules
         
         Returns:
             QuerySet: All DataCenterValue objects after initialization.
         """
+        # Get or create the default data center if none provided
+        if data_center is None:
+            data_center = DataCenter.get_default()
+        
         # Get all components
         components = DataCenterComponent.objects.all().prefetch_related('attributes')
         logger.info(f"Found {len(components)} components for initialization")
@@ -214,6 +248,11 @@ class DataCenterValueService:
         
         # Process each component
         for component in components:
+            # Associate component with data center if not already
+            if hasattr(component, 'data_center') and not component.data_center:
+                component.data_center = data_center
+                component.save()
+                
             component_values[component.id] = {}
             
             # Get all attributes for this component
@@ -222,11 +261,9 @@ class DataCenterValueService:
             for attr in attributes:
                 unit = attr.unit
                 
-                # Special handling for Space_X and Space_Y
-                if unit == 'Space_X':
-                    component_values[component.id][unit] = DataCenterConstants.SPACE_X_INITIAL
-                elif unit == 'Space_Y':
-                    component_values[component.id][unit] = DataCenterConstants.SPACE_Y_INITIAL
+                # Special handling for Space_X and Space_Y - initialize to 0 (used space)
+                if unit in ['Space_X', 'Space_Y']:
+                    component_values[component.id][unit] = 0
                 # For units that need to be above a certain amount, start at 0
                 elif attr.above_amount == 1 and attr.amount > 0:
                     component_values[component.id][unit] = 0
@@ -246,6 +283,7 @@ class DataCenterValueService:
                     value_obj, created = DataCenterValue.objects.get_or_create(
                         unit=unit,
                         component=component,
+                        data_center=data_center,
                         defaults={'value': value}
                     )
                     
@@ -253,30 +291,59 @@ class DataCenterValueService:
                         value_obj.value = value
                         value_obj.save()
                     
-                    logger.info(f"Component {component.name}, Unit {unit}: Initialized to {value}")
+                    logger.info(f"DataCenter {data_center.name}, Component {component.name}, Unit {unit}: Initialized to {value}")
         
-        return DataCenterValue.objects.all()
+        return DataCenterValue.objects.filter(data_center=data_center)
     
     @staticmethod
-    def recalculate_all_values():
+    def recalculate_all_values(data_center=None):
         """
         Recalculate all DataCenterValues based on active modules and their components.
         
-        This method:
-        1. Gets all active modules and their attributes
-        2. Groups them by component
-        3. Calculates the total for each unit across all modules in each component
-        4. Updates the DataCenterValue objects accordingly
-        
-        Special cases:
-        - Space_X and Space_Y: Calculated as (initial value - total used)
-        - Other units: Set directly to the calculated total
+        Args:
+            data_center (DataCenter, optional): The data center to recalculate values for.
+                If None, uses the default data center.
         
         Returns:
             QuerySet: All DataCenterValue objects after recalculation.
         """
-        # Get all active modules with their related modules and components
-        active_modules = ActiveModule.objects.all().select_related('module', 'data_center_component')
+        # Get or create the default data center if none provided
+        if data_center is None:
+            data_center = DataCenter.get_default()
+        
+        # Get all active modules with their related modules and components for this data center
+        active_modules = ActiveModule.objects.filter(
+            Q(data_center_component__data_center=data_center) | 
+            Q(data_center_component__isnull=True)
+        ).select_related('module', 'data_center_component')
+        
+        # Calculate global totals first
+        global_totals = {}
+        for am in active_modules:
+            # Get all attributes for this module
+            attributes = ModuleAttribute.objects.filter(module=am.module)
+            
+            for attr in attributes:
+                unit = attr.unit
+                amount = attr.amount
+                
+                # Special handling for Space_X and Space_Y
+                if unit in ['Space_X', 'Space_Y']:
+                    if unit not in global_totals:
+                        global_totals[unit] = 0
+                    global_totals[unit] += amount
+                    continue
+                    
+                # For other units, add or subtract based on is_output
+                if unit not in global_totals:
+                    global_totals[unit] = 0
+                    
+                if attr.is_output:
+                    global_totals[unit] += amount
+                else:
+                    global_totals[unit] -= amount
+        
+        logger.info(f"Global totals: {global_totals}")
         
         # Group active modules by component
         modules_by_component = {}
@@ -301,7 +368,7 @@ class DataCenterValueService:
                 valid_units = set(attr.unit for attr in component.attributes.all())
             else:
                 # For modules without a component, use all units
-                valid_units = set(DataCenterComponentAttribute.objects.values_list('unit', flat=True).distinct())
+                valid_units = set(ModuleAttribute.objects.values_list('unit', flat=True).distinct())
             
             # Create dictionaries to store unit totals and space consumption
             unit_totals = {unit: 0 for unit in valid_units}
@@ -330,51 +397,51 @@ class DataCenterValueService:
                             unit_totals[unit] -= amount
             
             logger.info(f"Component {component_id}: Calculated unit totals: {unit_totals}")
-            logger.info(f"Component {component_id}: Space consumption: {space_consumption}")
             
             # Update DataCenterValue objects for this component
             with transaction.atomic():
-                # First handle Space_X and Space_Y
+                # First handle Space_X and Space_Y - set to consumed space
                 for space_unit in ['Space_X', 'Space_Y']:
                     if space_unit in valid_units:
                         value_obj, created = DataCenterValue.objects.get_or_create(
                             unit=space_unit,
                             component=component,
-                            defaults={'value': 0}
+                            data_center=data_center,
+                            defaults={'value': space_consumption.get(space_unit, 0)}
                         )
                         
-                        old_value = value_obj.value
-                        consumed = space_consumption[space_unit]
-                        
-                        # Calculate remaining space
-                        if space_unit == 'Space_X':
-                            value_obj.value = DataCenterConstants.SPACE_X_INITIAL - consumed
-                            logger.info(f"Component {component_id}, Unit {space_unit}: {DataCenterConstants.SPACE_X_INITIAL} - {consumed} = {value_obj.value} (was {old_value})")
-                        else:  # Space_Y
-                            value_obj.value = DataCenterConstants.SPACE_Y_INITIAL - consumed
-                            logger.info(f"Component {component_id}, Unit {space_unit}: {DataCenterConstants.SPACE_Y_INITIAL} - {consumed} = {value_obj.value} (was {old_value})")
-                        
-                        value_obj.save()
+                        if not created:
+                            value_obj.value = space_consumption.get(space_unit, 0)
+                            value_obj.save()
                 
-                # Then handle all other units
+                # Then handle all other units - use global totals for component values
                 for unit in valid_units:
                     if unit not in ['Space_X', 'Space_Y']:
                         value_obj, created = DataCenterValue.objects.get_or_create(
                             unit=unit,
                             component=component,
-                            defaults={'value': 0}
+                            data_center=data_center,
+                            defaults={'value': global_totals.get(unit, 0)}
                         )
                         
-                        old_value = value_obj.value
-                        total = unit_totals[unit]
-                        
-                        # For other units, we just use the total
-                        value_obj.value = total
-                        logger.info(f"Component {component_id}, Unit {unit}: Updated to {total} (was {old_value})")
-                        
-                        value_obj.save()
+                        if not created:
+                            value_obj.value = global_totals.get(unit, 0)
+                            value_obj.save()
         
-        return DataCenterValue.objects.all()
+        # Update global values (not associated with any component)
+        for unit, value in global_totals.items():
+            value_obj, created = DataCenterValue.objects.get_or_create(
+                unit=unit,
+                component=None,
+                data_center=data_center,
+                defaults={'value': value}
+            )
+            
+            if not created:
+                value_obj.value = value
+                value_obj.save()
+        
+        return DataCenterValue.objects.filter(data_center=data_center)
 
 class DataCenterComponentService:
     """
@@ -383,149 +450,155 @@ class DataCenterComponentService:
     """
     
     @staticmethod
-    def validate_component_values(component=None):
+    def validate_component_values(component=None, data_center=None):
         """
-        Validate that all current DataCenterValues meet the specifications for a component.
-        
-        This method:
-        1. Gets all DataCenterComponentAttributes for the specified component (or all components)
-        2. Gets all DataCenterValues for the component
-        3. Checks each value against its specifications
-        4. Logs any violations
+        Validate DataCenterValues against component specifications.
         
         Args:
             component (DataCenterComponent, optional): The component to validate.
-                If None, all components will be validated.
-        
-        Returns:
-            tuple: (bool, list) - Success flag and list of violation messages.
+                If None, validates all components.
+            data_center (DataCenter, optional): The data center to validate for.
+                If None, uses the default data center.
             
-        Usage:
-            is_valid, violations = DataCenterComponentService.validate_component_values(component)
-            if is_valid:
-                # All specifications are met
-            else:
-                # Some specifications are not met, see violations list
+        Returns:
+            tuple: (validation_result, violations)
+                validation_result (bool): True if all validations pass, False otherwise.
+                violations (list): List of validation failure messages.
         """
-        logger.info(f"Validating data center component: {component.name if component else 'All components'}")
+        # Get or create the default data center if none provided
+        if data_center is None:
+            data_center = DataCenter.get_default()
         
         # Get components to validate
         if component:
             components = [component]
         else:
-            components = DataCenterComponent.objects.all()
+            components = DataCenterComponent.objects.filter(data_center=data_center)
         
-        # Track all violations
-        all_violations = []
+        validation_passed = True
+        violations = []
         
-        # Validate each component
+        # For each component, validate its attributes against current values
         for comp in components:
-            logger.info(f"Validating component: {comp.name}")
-            
             # Get all attributes for this component
             attributes = comp.attributes.all()
             
-            # Get all current values for this component
-            values = {value.unit: value.value for value in DataCenterValue.objects.filter(component=comp)}
+            # Get all values for this component
+            value_objects = DataCenterValue.objects.filter(component=comp, data_center=data_center)
             
-            # Log current state for debugging
-            logger.info(f"Found {len(attributes)} specifications to validate for component {comp.name}")
-            logger.info(f"Current values for component {comp.name}: {values}")
+            # Create a dictionary of current values by unit
+            values = {value.unit: value.value for value in value_objects}
             
-            # Check each attribute against current values
-            for attr in attributes:
-                unit = attr.unit
-                current_value = values.get(unit, 0)
-                
-                # Log what we're checking
-                logger.info(f"Validating {comp.name} - {unit}: Current Value: {current_value}, Spec Amount: {attr.amount}")
-                
-                # Check below constraint
-                if attr.below_amount == 1 and current_value > attr.amount:
-                    violation_msg = f"Component {comp.name}, Unit {unit} value ({current_value}) exceeds maximum allowed ({attr.amount})"
-                    logger.error(violation_msg)
-                    all_violations.append(violation_msg)
-                
-                # Check above constraint
-                if attr.above_amount == 1 and current_value < attr.amount:
-                    violation_msg = f"Component {comp.name}, Unit {unit} value ({current_value}) is below minimum required ({attr.amount})"
-                    logger.error(violation_msg)
-                    all_violations.append(violation_msg)
-        
-        # Return success flag and violations list
-        return len(all_violations) == 0, all_violations
-
-class ModuleCalculationService:
-    """
-    Service class for module calculation operations.
-    Provides methods to calculate resource usage based on active modules.
-    """
-    
-    @staticmethod
-    def calculate_resource_usage(active_modules=None):
-        """
-        Calculate total resource usage based on active modules.
-        
-        This method:
-        1. Gets all active modules if not provided
-        2. Calculates the total amount for each unit across all modules
-        3. Combines with current DataCenterValues
-        
-        Args:
-            active_modules (QuerySet, optional): ActiveModule objects to calculate from.
-                If None, all active modules will be used.
-                
-        Returns:
-            dict: Dictionary mapping unit names to their total values.
-                Includes both calculated totals from modules and current DataCenterValues.
-        """
-        if active_modules is None:
-            active_modules = ActiveModule.objects.all().select_related('module')
-        
-        # Group by unit and sum amounts
-        unit_totals = {}
-        # Track space consumption separately
-        space_consumption = {'Space_X': 0, 'Space_Y': 0}
-        
-        for am in active_modules:
-            attributes = ModuleAttribute.objects.filter(module=am.module)
+            # Log the values for debugging
+            logger.info(f"Validating component {comp.name} with values: {values}")
             
+            # Validate each attribute
             for attr in attributes:
                 unit = attr.unit
                 amount = attr.amount
                 
+                # Get current value, default to 0 if not found
+                current_value = values.get(unit, 0)
+                
+                # Special handling for Space_X and Space_Y - check if used space is less than total space
                 if unit in ['Space_X', 'Space_Y']:
-                    space_consumption[unit] += amount
+                    total_space = data_center.space_x if unit == 'Space_X' else data_center.space_y
+                    
+                    # Check if used space exceeds total space
+                    if current_value > total_space:
+                        validation_passed = False
+                        message = f"Component {comp.name}: Used {unit} ({current_value}) exceeds total {unit} ({total_space})"
+                        violations.append(message)
+                        logger.warning(message)
                     continue
                 
-                # Initialize if not exists
-                if unit not in unit_totals:
-                    unit_totals[unit] = 0
+                # Check below_amount constraint - value should be less than or equal to amount
+                if attr.below_amount == 1 and current_value > amount:
+                    validation_passed = False
+                    message = f"Component {comp.name}: {unit} value ({current_value}) should be less than or equal to {amount}"
+                    violations.append(message)
+                    logger.warning(message)
                 
-                # For output attributes, add to the total (resources produced)
-                if attr.is_output:
-                    unit_totals[unit] += amount
-                # For input attributes, subtract from the total (resources consumed)
-                else:
-                    unit_totals[unit] -= amount
+                # Check above_amount constraint - value should be greater than or equal to amount
+                if attr.above_amount == 1 and current_value < amount:
+                    validation_passed = False
+                    message = f"Component {comp.name}: {unit} value ({current_value}) should be greater than or equal to {amount}"
+                    violations.append(message)
+                    logger.warning(message)
+        
+        return validation_passed, violations
+
+class ModuleCalculationService:
+    """
+    Service class for module calculation operations.
+    Provides methods to calculate resource usage and validate constraints.
+    """
     
-        # Get current DataCenterValues
-        all_values = {value.unit: value.value for value in DataCenterValue.objects.all()}
+    @staticmethod
+    def calculate_resource_usage(active_modules, data_center=None):
+        """
+        Calculate total resource usage for all active modules.
         
-        # Prepare result
-        result = {}
+        Args:
+            active_modules (QuerySet): ActiveModule objects to calculate resources for.
+            data_center (DataCenter, optional): The data center to calculate for.
+                If None, uses all active modules.
+                
+        Returns:
+            dict: Dictionary of resource totals by unit.
+        """
+        # If data_center is provided, filter active_modules by data_center_component__data_center
+        if data_center:
+            active_modules = active_modules.filter(data_center_component__data_center=data_center)
+            
+        # Initialize results dictionary
+        results = {}
         
-        # Add space values with proper calculation
-        result['Space_X'] = DataCenterConstants.SPACE_X_INITIAL - space_consumption['Space_X']
-        result['Space_Y'] = DataCenterConstants.SPACE_Y_INITIAL - space_consumption['Space_Y']
+        # Calculate total resources for each active module
+        for active_module in active_modules:
+            module = active_module.module
+            
+            # Get all attributes for this module
+            attributes = ModuleAttribute.objects.filter(module=module)
+            
+            # Process each attribute
+            for attr in attributes:
+                unit = attr.unit
+                amount = attr.amount
+                
+                # If it's an output (produced), add to the total
+                if attr.is_output:
+                    if unit in results:
+                        results[unit] = results[unit] + amount
+                    else:
+                        results[unit] = amount
+                # If it's an input (consumed), subtract from the total
+                else:
+                    if unit in results:
+                        results[unit] = results[unit] - amount
+                    else:
+                        results[unit] = -amount
         
-        # Add other calculated values
-        for unit, total in unit_totals.items():
-            result[unit] = total
+        # Add space calculations if data_center is provided
+        if data_center:
+            # Calculate space usage
+            space_x_used = 0
+            space_y_used = 0
+            
+            for active_module in active_modules:
+                module = active_module.module
+                # Get Space_X and Space_Y attributes
+                space_x_attr = ModuleAttribute.objects.filter(module=module, unit='Space_X').first()
+                space_y_attr = ModuleAttribute.objects.filter(module=module, unit='Space_Y').first()
+                
+                if space_x_attr:
+                    space_x_used += space_x_attr.amount
+                if space_y_attr:
+                    space_y_used += space_y_attr.amount
+            
+            results['Space_X'] = space_x_used
+            results['Space_Y'] = space_y_used
+            results['Space_X_Available'] = data_center.space_x - space_x_used
+            results['Space_Y_Available'] = data_center.space_y - space_y_used
         
-        # Add any values from DataCenterValues that aren't in the result yet
-        for unit, value in all_values.items():
-            if unit not in result:
-                result[unit] = value
-        
-        return result
+        return results

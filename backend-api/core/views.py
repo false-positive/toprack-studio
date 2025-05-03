@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Module, ActiveModule, DataCenterValue, DataCenterPoints, DataCenterComponent
+from .models import Module, ActiveModule, DataCenterValue, DataCenterPoints, DataCenterComponent, DataCenter
 from .serializers import (
     ModuleSerializer, ActiveModuleSerializer, DataCenterPointsSerializer,
     DataCenterComponentSerializer
@@ -61,66 +61,42 @@ class ModuleViewSet(viewsets.ModelViewSet):
         })
 
 class ActiveModuleViewSet(viewsets.ModelViewSet):
+    """API endpoint for managing active modules"""
     queryset = ActiveModule.objects.all()
     serializer_class = ActiveModuleSerializer
-    
-    def get_queryset(self):
-        return ActiveModuleService.get_all_active_modules()
-    
-    def list(self, request, *args, **kwargs):
-        """
-        List all active modules without validation.
-        Returns detailed information about each active module including module details.
-        """
-        # Get all active modules
-        queryset = self.filter_queryset(self.get_queryset())
-        
-        serializer = self.get_serializer(queryset, many=True)
-        
-        # Get module details for each active module
-        detailed_modules = []
-        for active_module in serializer.data:
-            try:
-                module = Module.objects.get(id=active_module['module'])
-                module_serializer = ModuleSerializer(module)
-                
-                # Create a detailed response with both active module and module details
-                detailed_module = {
-                    **active_module,
-                    'module_details': module_serializer.data
-                }
-                detailed_modules.append(detailed_module)
-            except Module.DoesNotExist:
-                # If module doesn't exist, just include the basic active module data
-                detailed_modules.append(active_module)
-        
-        return Response({
-            'status': 'success',
-            'status_code': status.HTTP_200_OK,
-            'message': 'Active modules retrieved successfully',
-            'data': detailed_modules
-        })
-    
+
     def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
+        """Create a new active module"""
         try:
-            data = serializer.validated_data
-            logger.info(f"Creating active module with data: {data}")
-            active_module = ActiveModuleService.create_active_module(data)
+            # Create the active module using the service
+            active_module = ActiveModuleService.create_active_module(request.data.copy())
             
+            # Get the data center for recalculation
+            data_center = None
+            if active_module.data_center_component and active_module.data_center_component.data_center:
+                data_center = active_module.data_center_component.data_center
+            else:
+                data_center = DataCenter.get_default()
+            
+            # Recalculate values after adding a module
+            DataCenterValueService.recalculate_all_values(data_center)
+            
+            # Serialize the result
             serializer = self.get_serializer(active_module)
+            headers = self.get_success_headers(serializer.data)
+            
             return Response({
-                "active_module": serializer.data
-            }, status=status.HTTP_201_CREATED)
-        except ValueError as e:
-            logger.error(f"Failed to create active module: {str(e)}")
-            logger.error(f"Request data: {request.data}")
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+                "status": "success",
+                "status_code": status.HTTP_201_CREATED,
+                "message": "Active module created successfully",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED, headers=headers)
         except Exception as e:
-            logger.error(f"Unexpected error creating active module: {str(e)}", exc_info=True)
-            return Response({"error": "An unexpected error occurred"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({
+                "status": "error",
+                "status_code": status.HTTP_400_BAD_REQUEST,
+                "message": str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -137,21 +113,39 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 def calculate_resources(request):
     """API endpoint to calculate resource usage and validate"""
+    # Get the data center (use default if not specified)
+    from core.models import DataCenter  # Add local import to ensure it's available
+    
+    data_center = DataCenter.get_default()
+    
     # First recalculate all values
-    DataCenterValueService.recalculate_all_values()
+    DataCenterValueService.recalculate_all_values(data_center)
     
     # Then get active modules and calculate resources
-    active_modules = ActiveModuleService.get_all_active_modules()
-    results = ModuleCalculationService.calculate_resource_usage(active_modules)
+    active_modules = ActiveModuleService.get_all_active_modules(data_center)
+    results = ModuleCalculationService.calculate_resource_usage(active_modules, data_center)
     
     # Check validation status
-    validation_result, violations = DataCenterComponentService.validate_component_values()
+    validation_result, violations = DataCenterComponentService.validate_component_values(None, data_center)
+    
+    # Add data center info to the response
+    data_center_info = {
+        "id": data_center.id,
+        "name": data_center.name,
+        "space_x": data_center.space_x,
+        "space_y": data_center.space_y,
+        "space_x_used": results.get('Space_X', 0),
+        "space_y_used": results.get('Space_Y', 0),
+        "space_x_available": results.get('Space_X_Available', data_center.space_x),
+        "space_y_available": results.get('Space_Y_Available', data_center.space_y)
+    }
     
     return Response({
         'status': 'success',
         'status_code': status.HTTP_200_OK,
         'message': 'Resources calculated successfully',
         'data': results,
+        'data_center': data_center_info,
         'validation_passed': validation_result,
         'violations': violations if not validation_result else []
     })
@@ -159,17 +153,31 @@ def calculate_resources(request):
 @api_view(['POST'])
 def recalculate_values(request):
     """API endpoint to recalculate all DataCenterValues and validate"""
+    # Get the data center (use default if not specified)
+    from core.models import DataCenter  # Add local import to ensure it's available
+    
+    data_center = DataCenter.get_default()
+    
     # Recalculate values
-    DataCenterValueService.recalculate_all_values()
+    DataCenterValueService.recalculate_all_values(data_center)
     
     # Validate after recalculation
-    validation_result, violations = DataCenterComponentService.validate_component_values()
+    validation_result, violations = DataCenterComponentService.validate_component_values(None, data_center)
+    
+    # Add data center info to the response
+    data_center_info = {
+        "id": data_center.id,
+        "name": data_center.name,
+        "space_x": data_center.space_x,
+        "space_y": data_center.space_y
+    }
     
     # Return a more structured response
     return Response({
         "status": "success",
         "status_code": status.HTTP_200_OK,
         "message": "Values recalculated successfully",
+        "data_center": data_center_info,
         "validation_passed": validation_result,
         "violations": violations if not validation_result else []
     })
@@ -177,23 +185,63 @@ def recalculate_values(request):
 @api_view(['POST'])
 def initialize_values(request):
     """API endpoint to initialize DataCenterValues from components"""
-    values = DataCenterValueService.initialize_values_from_components()
+    # Get the data center (use default if not specified)
+    from core.models import DataCenter  # Add local import to ensure it's available
+    
+    data_center = DataCenter.get_default()
+    
+    values = DataCenterValueService.initialize_values_from_components(data_center)
+    
+    # Add data center info to the response
+    data_center_info = {
+        "id": data_center.id,
+        "name": data_center.name,
+        "space_x": data_center.space_x,
+        "space_y": data_center.space_y
+    }
+    
     return Response({
         "status": "success",
         "status_code": status.HTTP_200_OK,
         "message": "Values initialized successfully",
-        "count": len(values)
+        "count": len(values),
+        "data_center": data_center_info
     })
 
 @api_view(['POST'])
 def initialize_values_from_components(request):
     """API endpoint to initialize DataCenterValues from DataCenterComponentAttributes"""
-    values = DataCenterValueService.initialize_values_from_components()
+    # Get or create the default data center
+    from core.models import DataCenter  # Add local import to ensure it's available
+    
+    data_center = DataCenter.get_default()
+    
+    # Initialize values with the data center
+    values = DataCenterValueService.initialize_values_from_components(data_center)
+    
+    # Serialize the values to return them in the response
+    value_data = {}
+    for value in values:
+        component_name = value.component.name if value.component else "Global"
+        if component_name not in value_data:
+            value_data[component_name] = {}
+        value_data[component_name][value.unit] = value.value
+    
+    # Add data center info to the response
+    data_center_info = {
+        "id": data_center.id,
+        "name": data_center.name,
+        "space_x": data_center.space_x,
+        "space_y": data_center.space_y
+    }
+    
     return Response({
         "status": "success",
         "status_code": status.HTTP_200_OK,
         "message": "Values initialized successfully from components",
-        "count": len(values)
+        "count": len(values),
+        "data": value_data,
+        "data_center": data_center_info
     })
 
 class DataCenterPointsViewSet(viewsets.ModelViewSet):
@@ -241,18 +289,15 @@ class DataCenterComponentViewSet(viewsets.ModelViewSet):
             'data': serializer.data
         })
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 def validate_component_values(request, component_id=None):
-    """
-    API endpoint to validate data center values against component specifications.
+    """API endpoint to validate DataCenterValues against component specifications"""
+    # Get the data center (use default if not specified)
+    from core.models import DataCenter  # Add local import to ensure it's available
     
-    If component_id is provided, only that component's values will be validated.
-    Otherwise, all components will be validated.
+    data_center = DataCenter.get_default()
     
-    Returns:
-        Response: Validation status, component specifications, and current values.
-    """
-    # Get the component if ID is provided
+    # Get the component if specified
     component = None
     if component_id:
         try:
@@ -265,21 +310,32 @@ def validate_component_values(request, component_id=None):
             }, status=status.HTTP_404_NOT_FOUND)
     
     # Validate component values
-    validation_result, violations = DataCenterComponentService.validate_component_values(component)
+    validation_result, violations = DataCenterComponentService.validate_component_values(component, data_center)
     
-    # Get component data for response
+    # Get all components for the response
     if component:
         components = [component]
     else:
-        components = DataCenterComponent.objects.all()
+        components = DataCenterComponent.objects.filter(data_center=data_center)
     
+    # Serialize components
     component_serializer = DataCenterComponentSerializer(components, many=True)
     
-    # Get current values for response
+    # Get current values for the response
     current_values = {}
-    for comp in components:
-        values = DataCenterValue.objects.filter(component=comp)
-        current_values[comp.name] = {value.unit: value.value for value in values}
+    for value in DataCenterValue.objects.filter(data_center=data_center):
+        component_name = value.component.name if value.component else "Global"
+        if component_name not in current_values:
+            current_values[component_name] = {}
+        current_values[component_name][value.unit] = value.value
+    
+    # Add data center info to the response
+    data_center_info = {
+        "id": data_center.id,
+        "name": data_center.name,
+        "space_x": data_center.space_x,
+        "space_y": data_center.space_y
+    }
     
     # Return response
     if validation_result:
@@ -288,7 +344,8 @@ def validate_component_values(request, component_id=None):
             "status_code": status.HTTP_200_OK,
             "message": "All specifications validated successfully",
             "components": component_serializer.data,
-            "current_values": current_values
+            "current_values": current_values,
+            "data_center": data_center_info
         })
     else:
         return Response({
@@ -297,5 +354,6 @@ def validate_component_values(request, component_id=None):
             "message": "Some specifications are not met",
             "components": component_serializer.data,
             "current_values": current_values,
-            "violations": violations
+            "violations": violations,
+            "data_center": data_center_info
         }, status=status.HTTP_400_BAD_REQUEST)

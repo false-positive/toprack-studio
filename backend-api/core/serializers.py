@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Module, ActiveModule, DataCenterPoints, ModuleAttribute,
-    DataCenterComponent, DataCenterComponentAttribute
+    DataCenterComponent, DataCenterComponentAttribute, DataCenter
 )
 
 class ModuleAttributeSerializer(serializers.ModelSerializer):
@@ -28,10 +28,17 @@ class ModuleSerializer(serializers.ModelSerializer):
             }
         return result
 
+class DataCenterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DataCenter
+        fields = ['id', 'name', 'space_x', 'space_y']
+
 class ActiveModuleSerializer(serializers.ModelSerializer):
+    """Serializer for ActiveModule model"""
     class Meta:
         model = ActiveModule
-        fields = '__all__'
+        fields = ['id', 'x', 'y', 'module', 'data_center_component']
+        read_only_fields = ['id']
 
 class DataCenterComponentAttributeSerializer(serializers.ModelSerializer):
     class Meta:
