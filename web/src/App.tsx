@@ -15,6 +15,7 @@ import ModuleCard from "./components/ModuleCard";
 import L from "leaflet";
 import { ActiveModule } from "types";
 import Toolbar from "./components/Toolbar";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 
 function App() {
     const { data: loadedModules = [], isLoading: loading } = useQuery({
@@ -72,7 +73,6 @@ function App() {
     return (
         <DndContext
             onDragStart={(event) => {
-                // event.active.id is like 'module-<id>'
                 const id = String(event.active.id).replace(/^module-/, "");
                 setActiveModuleId(id);
             }}
@@ -100,11 +100,10 @@ function App() {
                         },
                     ]);
                 }
-                // handle drop logic here if needed
             }}
             onDragCancel={() => setActiveModuleId(null)}
         >
-            <div className="flex flex-col min-h-screen bg-background text-foreground dark">
+            <div className="flex flex-col h-full min-h-0 bg-background text-foreground dark">
                 <header className="w-full h-(--header-height) border-b flex items-center border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0">
                     <div className="flex items-center gap-3 px-8 py-3">
                         <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-1.5">
@@ -113,66 +112,66 @@ function App() {
                         <h1 className="text-base font-semibold tracking-tight">Data Center Editor</h1>
                     </div>
                 </header>
-                <main className="flex flex-1 h-[calc(100vh-var(--header-height)-var(--footer-height))]">
+                <main className="flex flex-1 h-full min-h-0">
                     <Toolbar />
-                    <div className="flex-1 flex items-stretch">
-                        <div className="flex-1 bg-gradient-to-br from-background via-muted to-background">
+                    <ResizablePanelGroup direction="horizontal" className="flex-1">
+                        <ResizablePanel defaultSize={75} minSize={30} className="flex-1 bg-gradient-to-br from-background via-muted to-background">
                             <RoomVisualization
                                 roomDimensions={roomDimensions}
                                 modules={loadedModules}
                                 mapRef={mapRef}
                                 TEMPORARY_REMOVE_SOON_activeModules={TEMPORARY_REMOVE_SOON_activeModules}
+                                placedModules={[]}
                             />
-                        </div>
-                        {/* <ModuleCard
-              module={loadedModules[0]}
-              onClick={() => handleModulePlaced(loadedModules[0].id, [0, 0])}
-            /> */}
-                        <aside className="w-80 max-w-xs border-l border-border bg-card/90 h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6">
-                            <div className="mb-6">
-                                <h2 className="text-lg font-bold mb-4">Module Library</h2>
-                                <Card>
-                                    <CardContent>
-                                        <div className="flex flex-col gap-2">
-                                            <Label htmlFor="module-search" className="text-xs text-muted-foreground">
-                                                Search modules
-                                            </Label>
-                                            <Input
-                                                id="module-search"
-                                                type="text"
-                                                placeholder="Search modules..."
-                                                value={search}
-                                                onChange={(e) => setSearch(e.target.value)}
-                                                className="w-full text-sm bg-background text-foreground border-border"
-                                            />
-                                        </div>
-                                        <div className="flex flex-col gap-2">
-                                            <Label htmlFor="type-filter" className="text-xs text-muted-foreground">
-                                                Type
-                                            </Label>
-                                            <Select value={typeFilter} onValueChange={setTypeFilter}>
-                                                <SelectTrigger id="type-filter" className="w-full text-sm bg-background text-foreground border-border">
-                                                    <SelectValue placeholder="All Types" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="all">All Types</SelectItem>
-                                                    {moduleTypes.map((type) => (
-                                                        <SelectItem key={type} value={type}>
-                                                            {type}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                                <Separator className="mt-5 bg-border" />
+                        </ResizablePanel>
+                        <ResizableHandle withHandle />
+                        <ResizablePanel defaultSize={25} minSize={20} maxSize={40} className="bg-card/90">
+                            <div className="h-full flex flex-col overflow-y-auto px-4 py-6">
+                                <div className="mb-6">
+                                    <h2 className="text-lg font-bold mb-4">Module Library</h2>
+                                    <Card>
+                                        <CardContent>
+                                            <div className="flex flex-col gap-2">
+                                                <Label htmlFor="module-search" className="text-xs text-muted-foreground">
+                                                    Search modules
+                                                </Label>
+                                                <Input
+                                                    id="module-search"
+                                                    type="text"
+                                                    placeholder="Search modules..."
+                                                    value={search}
+                                                    onChange={(e) => setSearch(e.target.value)}
+                                                    className="w-full text-sm bg-background text-foreground border-border"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                <Label htmlFor="type-filter" className="text-xs text-muted-foreground">
+                                                    Type
+                                                </Label>
+                                                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                                                    <SelectTrigger id="type-filter" className="w-full text-sm bg-background text-foreground border-border">
+                                                        <SelectValue placeholder="All Types" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="all">All Types</SelectItem>
+                                                        {moduleTypes.map((type) => (
+                                                            <SelectItem key={type} value={type}>
+                                                                {type}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                    <Separator className="mt-5 bg-border" />
+                                </div>
+                                <ScrollArea className="h-[200px]">
+                                    <ModuleLibrary modules={filteredModules} />
+                                </ScrollArea>
                             </div>
-                            <ScrollArea className="h-[200px]">
-                                <ModuleLibrary modules={filteredModules} />
-                            </ScrollArea>
-                        </aside>
-                    </div>
+                        </ResizablePanel>
+                    </ResizablePanelGroup>
                 </main>
             </div>
             <DragOverlay>
