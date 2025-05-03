@@ -1,11 +1,9 @@
-type ModuleAttributes = Record<
-  string,
-  {
-    amount: boolean | string | number;
-    is_input: boolean;
-    is_output: boolean;
-  }
->;
+export interface ModuleAttribute {
+  unit: string;
+  amount: boolean | string | number;
+  is_input: boolean;
+  is_output: boolean;
+}
 
 export interface Module {
   id: string;
@@ -22,7 +20,7 @@ export interface Module {
   isOutput: boolean;
   unit: string;
   amount: number;
-  attributes: ModuleAttributes;
+  attributes: ModuleAttribute[];
 }
 
 export interface ActiveModule {
@@ -32,6 +30,6 @@ export interface ActiveModule {
   module_details: {
     id: number;
     name: string;
-    attributes: ModuleAttributes;
+    attributes: ModuleAttribute[];
   };
 }

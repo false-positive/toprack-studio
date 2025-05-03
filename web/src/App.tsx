@@ -704,14 +704,14 @@ function SplashScreen() {
 }
 
 function EditorPage() {
+  const { projectId } = useParams();
   const { data: loadedModules = [], isLoading: modulesLoading } = useQuery({
-    queryKey: ["modules"],
-    queryFn: fetchModules,
+    queryKey: ["modules", projectId],
+    queryFn: () => fetchModules(Number(projectId)),
   });
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [projects, setProjects] = useAtom(projectsAtom);
-  const { projectId } = useParams();
   const currentProject = projects.find(
     (p) => String(p.id) === String(projectId)
   );
@@ -746,8 +746,8 @@ function EditorPage() {
   const queryClient = useQueryClient();
 
   const { data: activeModules } = useQuery({
-    queryKey: ["activeModules"],
-    queryFn: () => fetchActiveModules(),
+    queryKey: ["activeModules", projectId],
+    queryFn: () => fetchActiveModules(Number(projectId)),
   });
 
   const addModuleMutation = useMutation({
@@ -760,7 +760,12 @@ function EditorPage() {
       y: number;
       moduleId: string;
     }) => {
-      return addActiveModule({ x, y, moduleId });
+      return addActiveModule({
+        x,
+        y,
+        moduleId,
+        dataCenterId: Number(projectId),
+      });
     },
     onMutate: async (newModule) => {
       await queryClient.cancelQueries({ queryKey: ["activeModules"] });
@@ -797,7 +802,7 @@ function EditorPage() {
   });
 
   const deleteModuleMutation = useMutation({
-    mutationFn: async (id: number) => deleteActiveModule(id),
+    mutationFn: async (id: number) => deleteActiveModule(id, Number(projectId)),
     onMutate: async (id) => {
       await queryClient.cancelQueries({ queryKey: ["activeModules"] });
       const previous = queryClient.getQueryData<ActiveModulesQueryResult>([

@@ -1,46 +1,92 @@
 import type { ActiveModule, Module } from "../../types";
+import type { ModuleAttribute } from "../../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-export async function fetchModules(): Promise<Module[]> {
-  const response = await fetch(`${API_BASE_URL}/api/modules/`);
+export async function fetchModules(dataCenterId: number): Promise<Module[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/modules/?data_center=${dataCenterId}`
+  );
   if (!response.ok) throw new Error("Failed to fetch modules");
   const json = await response.json();
-  return json.data.map((mod: Module) => {
-    // Pick the first numeric attribute as amount/unit for display
-    let unit = "";
-    let amount = 0;
-    if (mod.attributes) {
-      const firstKey = Object.keys(mod.attributes).find(
-        (k) => typeof mod.attributes[k] === "number"
-      );
-      if (firstKey) {
-        unit = firstKey;
-        const amountIdk = mod.attributes[firstKey].amount;
-        if (typeof amountIdk === "number") {
-          amount = amountIdk;
+  return json.data.map(
+    (mod: {
+      id: string | number;
+      name: string;
+      attributes: ModuleAttribute[];
+    }) => {
+      // Pick the first numeric attribute as amount/unit for display
+      let unit = "";
+      let amount = 0;
+      if (Array.isArray(mod.attributes)) {
+        const firstNumeric = mod.attributes.find(
+          (attr: { amount: unknown }) => typeof attr.amount === "number"
+        );
+        if (firstNumeric) {
+          unit = firstNumeric.unit;
+          if (typeof firstNumeric.amount === "number") {
+            amount = firstNumeric.amount;
+          }
         }
       }
+      const dims = getModuleDimensions(mod.name);
+      const spaceXAttr = Array.isArray(mod.attributes)
+        ? mod.attributes.find(
+            (attr: { unit: string }) => attr.unit === "Space_X"
+          )
+        : undefined;
+      const spaceYAttr = Array.isArray(mod.attributes)
+        ? mod.attributes.find(
+            (attr: { unit: string }) => attr.unit === "Space_Y"
+          )
+        : undefined;
+      const usablePowerAttr = Array.isArray(mod.attributes)
+        ? mod.attributes.find(
+            (attr: { unit: string }) => attr.unit === "Usable_Power"
+          )
+        : undefined;
+      const weightAttr = Array.isArray(mod.attributes)
+        ? mod.attributes.find(
+            (attr: { unit: string }) => attr.unit === "Weight"
+          )
+        : undefined;
+      const isInput = Array.isArray(mod.attributes)
+        ? mod.attributes.some((attr: { is_input: boolean }) => attr.is_input)
+        : false;
+      const isOutput = Array.isArray(mod.attributes)
+        ? mod.attributes.some((attr: { is_output: boolean }) => attr.is_output)
+        : false;
+      return {
+        id: String(mod.id),
+        name: mod.name,
+        type: getModuleType(mod.name),
+        width:
+          spaceXAttr && typeof spaceXAttr.amount === "number"
+            ? spaceXAttr.amount
+            : dims.width,
+        depth:
+          spaceYAttr && typeof spaceYAttr.amount === "number"
+            ? spaceYAttr.amount
+            : dims.depth,
+        height: dims.height,
+        power:
+          usablePowerAttr && typeof usablePowerAttr.amount === "number"
+            ? usablePowerAttr.amount
+            : 0,
+        weight:
+          weightAttr && typeof weightAttr.amount === "number"
+            ? weightAttr.amount
+            : 0,
+        color: getModuleColor(mod.name),
+        icon: undefined,
+        isInput,
+        isOutput,
+        unit,
+        amount,
+        attributes: Array.isArray(mod.attributes) ? mod.attributes : [],
+      };
     }
-    const dims = getModuleDimensions(mod.name);
-    return {
-      id: String(mod.id),
-      name: mod.name,
-      type: getModuleType(mod.name),
-      width: mod.attributes?.Space_X?.amount || dims.width,
-      depth: mod.attributes?.Space_Y?.amount || dims.depth,
-      height: dims.height,
-      power: mod.attributes?.Usable_Power?.amount || 0,
-      weight: mod.attributes?.Weight?.amount || 0,
-      color: getModuleColor(mod.name),
-      icon: undefined,
-      isInput: mod.attributes?.is_input,
-      isOutput: mod.attributes?.is_output,
-      unit,
-      amount,
-      attributes: mod.attributes,
-    };
-  });
+  );
 }
 
 // Helper function to determine module type from name
@@ -93,8 +139,10 @@ export function getModuleColor(name: string): string {
   return "#a1a1aa";
 }
 
-export async function fetchActiveModules() {
-  const response = await fetch(`${API_BASE_URL}/api/active-modules/`);
+export async function fetchActiveModules(dataCenterId: number) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/active-modules/?data_center=${dataCenterId}`
+  );
   if (!response.ok) throw new Error("Failed to fetch active modules");
   const json = await response.json();
   return json as {
@@ -131,16 +179,19 @@ export async function addActiveModule({
   y,
   moduleId,
   dataCenterComponentId,
+  dataCenterId,
 }: {
   x: number;
   y: number;
   moduleId: string | number;
   dataCenterComponentId?: number;
+  dataCenterId: number;
 }): Promise<ActiveModule> {
   const body: Record<string, unknown> = {
     x,
     y,
     module: moduleId,
+    data_center: dataCenterId,
   };
   if (dataCenterComponentId) {
     body.data_center_component = dataCenterComponentId;
@@ -154,9 +205,15 @@ export async function addActiveModule({
   return response.json();
 }
 
-export async function deleteActiveModule(id: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/active-modules/${id}/`, {
-    method: "DELETE",
-  });
+export async function deleteActiveModule(
+  id: number,
+  dataCenterId: number
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/active-modules/${id}/?data_center=${dataCenterId}`,
+    {
+      method: "DELETE",
+    }
+  );
   if (!response.ok) throw new Error("Failed to delete active module");
 }

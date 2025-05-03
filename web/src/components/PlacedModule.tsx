@@ -12,8 +12,14 @@ export default function PlacedModule({
   activeModule,
   onDelete,
 }: PlacedModuleProps) {
-  const spaceXIdk = activeModule.module_details.attributes.Space_X.amount;
-  const spaceYIdk = activeModule.module_details.attributes.Space_Y.amount;
+  const spaceXAttr = activeModule.module_details.attributes.find(
+    (attr) => attr.unit === "Space_X"
+  );
+  const spaceYAttr = activeModule.module_details.attributes.find(
+    (attr) => attr.unit === "Space_Y"
+  );
+  const spaceXIdk = spaceXAttr ? spaceXAttr.amount : 1;
+  const spaceYIdk = spaceYAttr ? spaceYAttr.amount : 1;
   const spaceX = typeof spaceXIdk === "number" ? spaceXIdk / 10 : 1;
   const spaceY = typeof spaceYIdk === "number" ? spaceYIdk / 10 : 1;
   console.dir(JSON.stringify({ activeModule, spaceX, spaceY }, null, 2));
