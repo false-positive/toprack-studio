@@ -260,7 +260,69 @@ Example response:
 }
 ```
 
-These endpoints help coordinate which interface (website or VR) should be actively displaying information at any given time.
+### 10. Active Data Center Management
+
+The API provides endpoints to get or set the currently active data center:
+
+**Set active data center:**
+
+```
+POST /api/active-data-center/
+```
+
+Example request:
+
+```json
+{
+  "data_center_id": 1
+}
+```
+
+Example response:
+
+```json
+{
+  "status": "success",
+  "status_code": 200,
+  "message": "Active data center set to My Data Center (ID: 1)",
+  "data": {
+    "id": 1,
+    "name": "My Data Center"
+  }
+}
+```
+
+**Get active data center:**
+
+```
+GET /api/active-data-center/
+```
+
+Example response:
+
+```json
+{
+  "status": "success",
+  "status_code": 200,
+  "message": "Active data center retrieved successfully",
+  "data": {
+    "id": 1,
+    "name": "My Data Center"
+  }
+}
+```
+
+If no active data center has been set, the endpoint returns a 404 error:
+
+```json
+{
+  "status": "error",
+  "status_code": 404,
+  "message": "No active data center set"
+}
+```
+
+These endpoints help coordinate which data center should be actively displayed and manipulated at any given time.
 
 This workflow allows you to iteratively design and optimize your data center layout while ensuring all constraints are satisfied.
 

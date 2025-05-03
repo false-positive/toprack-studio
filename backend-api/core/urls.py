@@ -7,7 +7,8 @@ from .views import (
     DataCenterViewSet, create_data_center,
     upload_warmth_image, get_warmth_image,
     initialize_values_from_components,
-    debug_active_modules
+    debug_active_modules, toggle_display_control, 
+    get_display_control, get_set_active_data_center
 )
 
 router = DefaultRouter()
@@ -22,6 +23,9 @@ urlpatterns = [
     path('create-data-center/', create_data_center, name='create-data-center'),
     path('warmth-image/upload/', upload_warmth_image, name='upload-warmth-image'),
     path('warmth-image/', get_warmth_image, name='get-warmth-image'),
+    path('display-control/toggle/', toggle_display_control, name='toggle-display-control'),
+    path('display-control/', get_display_control, name='get-display-control'),
+    path('active-data-center/', get_set_active_data_center, name='active-data-center'),
 
     # dev
     path('initialize-values-from-components/', initialize_values_from_components, name='initialize-values-from-components'),
@@ -30,5 +34,4 @@ urlpatterns = [
 
     # legacy
     # path('recalculate-values/', recalculate_values, name='recalculate-values'),
-
 ]
