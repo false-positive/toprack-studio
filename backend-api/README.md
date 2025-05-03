@@ -385,7 +385,11 @@ Tracks the current value of a resource for a component.
 
 ## API Endpoints Reference
 
-### Data Centers
+### Core API Endpoints (Production Use)
+
+These endpoints are part of the main workflow and should be used by developers:
+
+#### Data Centers
 
 - `GET /api/datacenters/` - List all data centers
 
@@ -474,7 +478,7 @@ Tracks the current value of a resource for a component.
     }
     ```
 
-### Create Data Center
+#### Create Data Center
 
 - `POST /api/create-data-center/` - Create a new data center with CSV files
   - Parameters:
@@ -504,7 +508,7 @@ Tracks the current value of a resource for a component.
     }
     ```
 
-### Modules
+#### Modules
 
 - `GET /api/modules/` - List all available modules
   - Returns: List of all modules with their properties and attributes
@@ -543,7 +547,7 @@ Tracks the current value of a resource for a component.
     }
     ```
 
-### Data Center Components
+#### Data Center Components
 
 - `GET /api/datacenter-components/` - List all data center components
   - Returns: List of all components with their constraints
@@ -582,7 +586,7 @@ Tracks the current value of a resource for a component.
     }
     ```
 
-### Active Modules
+#### Active Modules
 
 - `GET /api/active-modules/` - List all placed modules
 
@@ -764,168 +768,43 @@ Tracks the current value of a resource for a component.
     }
     ```
 
-### Calculation and Validation
-
-- `GET /api/calculate-resources/` - Calculate total resource usage and validate
-
-  - Recalculates all DataCenterValue objects
-  - Validates against component constraints
-  - Example success response:
-    ```json
-    {
-      "status": "success",
-      "status_code": 200,
-      "message": "Resources calculated successfully",
-      "data": {
-        "Space_X": 850,
-        "Space_Y": 400,
-        "Data_Storage": 1200,
-        "Price": 50000
-      },
-      "data_center": {
-        "id": 1,
-        "name": "Default Data Center",
-        "width": 1000,
-        "height": 500,
-        "points": [
-          { "id": 1, "x": 0, "y": 0 },
-          { "id": 2, "x": 1000, "y": 0 },
-          { "id": 3, "x": 1000, "y": 500 },
-          { "id": 4, "x": 0, "y": 500 }
-        ]
-      },
-      "validation_passed": true,
-      "violations": []
-    }
-    ```
-  - Example failure response:
-    ```json
-    {
-      "status": "success",
-      "status_code": 200,
-      "message": "Resources calculated successfully",
-      "data": {
-        "Space_X": 920,
-        "Space_Y": 420,
-        "Usable_Power": -80,
-        "Processing": 0
-      },
-      "data_center": {
-        "id": 1,
-        "name": "Default Data Center",
-        "width": 1000,
-        "height": 500,
-        "points": [
-          { "id": 1, "x": 0, "y": 0 },
-          { "id": 2, "x": 1000, "y": 0 },
-          { "id": 3, "x": 1000, "y": 500 },
-          { "id": 4, "x": 0, "y": 500 }
-        ]
-      },
-      "validation_passed": false,
-      "violations": [
-        "Component Server_Square: Processing value (0) should be greater than or equal to 1000"
-      ]
-    }
-    ```
+#### Validation
 
 - `GET /api/validate-component-values/` - Validate current data center values
-
   - Returns: Detailed validation status, specifications, and current values
-  - Example success response:
-    ```json
-    {
-      "status": "success",
-      "status_code": 200,
-      "message": "All specifications validated successfully",
-      "components": [
-        {
-          "id": 1,
-          "name": "Server_Square",
-          "attributes": [
-            {
-              "unit": "Space_X",
-              "amount": 1000,
-              "below_amount": 1,
-              "above_amount": 0,
-              "minimize": 0,
-              "maximize": 0,
-              "unconstrained": 0
-            }
-          ]
-        }
-      ],
-      "current_values": {
-        "Server_Square": {
-          "Space_X": 850,
-          "Space_Y": 400,
-          "Data_Storage": 1200
-        }
-      },
-      "violations": [],
-      "data_center": {
-        "id": 1,
-        "name": "Default Data Center",
-        "width": 1000,
-        "height": 500,
-        "points": [
-          { "id": 1, "x": 0, "y": 0 },
-          { "id": 2, "x": 1000, "y": 0 },
-          { "id": 3, "x": 1000, "y": 500 },
-          { "id": 4, "x": 0, "y": 500 }
-        ]
-      }
-    }
-    ```
-  - Example failure response:
-    ```json
-    {
-      "status": "error",
-      "status_code": 400,
-      "message": "Some specifications are not met",
-      "components": [
-        {
-          "id": 1,
-          "name": "Server_Square",
-          "attributes": [
-            {
-              "unit": "Processing",
-              "amount": 1000,
-              "below_amount": 0,
-              "above_amount": 1,
-              "minimize": 0,
-              "maximize": 0,
-              "unconstrained": 0
-            }
-          ]
-        }
-      ],
-      "current_values": {
-        "Server_Square": {
-          "Processing": 0
-        }
-      },
-      "violations": [
-        "Component Server_Square: Processing value (0) should be greater than or equal to 1000"
-      ],
-      "data_center": {
-        "id": 1,
-        "name": "Default Data Center",
-        "width": 1000,
-        "height": 500,
-        "points": [
-          { "id": 1, "x": 0, "y": 0 },
-          { "id": 2, "x": 1000, "y": 0 },
-          { "id": 3, "x": 1000, "y": 500 },
-          { "id": 4, "x": 0, "y": 500 }
-        ]
-      }
-    }
-    ```
 
-- `GET /api/recalculate-values/` - Recalculate all DataCenterValues and validate
-  - Returns: Validation status after recalculation
-  - Response format is similar to `calculate-resources`
+#### Warmth Image Management
+
+- `POST /api/warmth-image/upload/` - Upload a warmth image
+
+  - Parameters:
+    - `image` (file): The image file to upload
+
+- `GET /api/warmth-image/` - Retrieve the warmth image
+  - Returns: The most recently uploaded warmth image
+
+### Development Endpoints (Not for Production Use)
+
+These endpoints are for development and debugging purposes only:
+
+- `GET /api/initialize-values-from-components/` - Initialize values from existing components
+
+  - Used for development testing
+
+- `GET /api/debug-active-modules/` - Debug active modules
+
+  - Returns detailed information about active modules for debugging
+
+- `GET /api/calculate-resources/` - Calculate total resource usage and validate
+  - Recalculates all DataCenterValue objects and validates against component constraints
+  - This endpoint is primarily for development and testing
+
+### Legacy Endpoints (Deprecated)
+
+These endpoints are deprecated and should not be used:
+
+- `GET /api/recalculate-values/` - Recalculate all DataCenterValues (deprecated)
+  - Use `validate-component-values` instead
 
 ## Constraint Types
 
