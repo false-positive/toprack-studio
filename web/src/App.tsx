@@ -37,6 +37,19 @@ import {
 } from "@/components/ui/popover";
 import { CardHeader, CardTitle } from "@/components/ui/card";
 import { Pencil, Plus, Trash2, MoreVertical } from "lucide-react";
+import { useAtom } from "jotai";
+import { atomWithStorage } from "jotai/utils";
+import { useParams } from "react-router";
+
+// Project type
+interface Project {
+  id: number;
+  name: string;
+  lastOpenedAt: string; // ISO string for serialization
+}
+
+// Jotai atom for projects, persisted to localStorage
+const projectsAtom = atomWithStorage<Project[]>("projects", []);
 
 function App() {
   return (
@@ -48,14 +61,7 @@ function App() {
 }
 
 function SplashScreen() {
-  // For demo: local state for projects
-  const [projects, setProjects] = useState([
-    { id: 1, name: "Project 1" },
-    { id: 2, name: "Project 2" },
-    { id: 3, name: "Project 3" },
-    { id: 4, name: "Project 4" },
-    { id: 5, name: "Project 5" },
-  ]);
+  const [projects, setProjects] = useAtom(projectsAtom);
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState<number | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<number | null>(null);
@@ -66,7 +72,11 @@ function SplashScreen() {
     if (newProjectName.trim()) {
       setProjects((prev) => [
         ...prev,
-        { id: Date.now(), name: newProjectName.trim() },
+        {
+          id: Date.now(),
+          name: newProjectName.trim(),
+          lastOpenedAt: new Date().toISOString(),
+        },
       ]);
       setNewProjectName("");
       setNewProjectDialogOpen(false);
@@ -84,6 +94,37 @@ function SplashScreen() {
   function handleDeleteProject(id: number) {
     setProjects((prev) => prev.filter((p) => p.id !== id));
     setDeleteDialogOpen(null);
+  }
+
+  function handleOpenProject(id: number) {
+    setProjects((prev) => {
+      const now = new Date().toISOString();
+      const updated = prev.map((p) =>
+        p.id === id ? { ...p, lastOpenedAt: now } : p
+      );
+      // Move the opened project to the top
+      updated.sort(
+        (a, b) =>
+          new Date(b.lastOpenedAt).getTime() -
+          new Date(a.lastOpenedAt).getTime()
+      );
+      return updated;
+    });
+  }
+
+  // Helper to format relative time
+  function formatRelativeTime(dateString: string) {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diff = now.getTime() - date.getTime();
+    const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+    if (minutes < 1) return rtf.format(0, "minute");
+    if (minutes < 60) return rtf.format(-minutes, "minute");
+    if (hours < 24) return rtf.format(-hours, "hour");
+    return rtf.format(-days, "day");
   }
 
   // Split projects: first 2 are cards, rest are in the list
@@ -160,12 +201,13 @@ function SplashScreen() {
                 <CardContent className="px-4 pb-4">
                   <div className="flex flex-col gap-2">
                     <span className="text-xs text-muted-foreground">
-                      Last opened: just now
+                      Last opened: {formatRelativeTime(project.lastOpenedAt)}
                     </span>
                     <Button
                       variant="secondary"
                       size="sm"
                       className="w-full mt-2"
+                      onClick={() => handleOpenProject(project.id)}
                     >
                       Open Project
                     </Button>
@@ -207,7 +249,7 @@ function SplashScreen() {
                         {project.name}
                       </td>
                       <td className="px-2 py-1 text-[11px] text-muted-foreground align-middle whitespace-nowrap">
-                        Last opened: just now
+                        Last opened: {formatRelativeTime(project.lastOpenedAt)}
                       </td>
                       <td className="px-1 py-1 align-middle text-right">
                         <Popover>
@@ -374,6 +416,19 @@ function EditorPage() {
   });
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [, setProjects] = useAtom(projectsAtom);
+  const { projectId } = useParams();
+  useEffect(() => {
+    if (projectId) {
+      setProjects((prev) =>
+        prev.map((p) =>
+          String(p.id) === String(projectId)
+            ? { ...p, lastOpenedAt: new Date().toISOString() }
+            : p
+        )
+      );
+    }
+  }, [projectId, setProjects]);
 
   const [roomDimensions] = useState({
     width: 20, // meters
