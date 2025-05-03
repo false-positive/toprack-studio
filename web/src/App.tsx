@@ -25,7 +25,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import L from "leaflet";
@@ -45,11 +45,14 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, Route, Routes, useNavigate, useParams } from "react-router";
-import { ActiveModule } from "types";
 import ModuleCard from "./components/ModuleCard";
 import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
-import { fetchActiveModules, fetchModules } from "./data/modules";
+import {
+  fetchActiveModules,
+  fetchModules,
+  addActiveModuleFake,
+} from "./data/modules";
 import Toolbar from "./components/Toolbar";
 
 // Project type
@@ -716,14 +719,54 @@ function EditorPage() {
 
   const { data: activeModulesResponse } = useQuery({
     queryKey: ["activeModules"],
-    queryFn: () => fetchActiveModules(),
+    queryFn: fetchActiveModules,
   });
 
   const activeModules = activeModulesResponse?.data;
 
-  const [, setTEMPORARY_REMOVE_SOON_activeModules] = useState<
-    Array<ActiveModule>
-  >([]);
+  const queryClient = useQueryClient();
+
+  // Helper type for the query data
+  type ActiveModulesQueryData = Awaited<ReturnType<typeof fetchActiveModules>>;
+
+  const addModuleMutation = useMutation({
+    mutationFn: addActiveModuleFake,
+    onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: ["activeModules"] });
+      const previous = queryClient.getQueryData(["activeModules"]);
+      // Optimistically update the cache
+      queryClient.setQueryData(
+        ["activeModules"],
+        (old: ActiveModulesQueryData | undefined) => {
+          if (!old) return old;
+          return {
+            ...old,
+            data: [
+              ...old.data,
+              {
+                id:
+                  old.data.length > 0
+                    ? old.data[old.data.length - 1].id + 1
+                    : 1,
+                x: variables.x,
+                y: variables.y,
+                module_details: variables.moduleDetails,
+              },
+            ],
+          };
+        }
+      );
+      return { previous };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["activeModules"], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["activeModules"] });
+    },
+  });
 
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
@@ -828,19 +871,16 @@ function EditorPage() {
             Math.round(latlng.lng),
           ];
           const module = loadedModules.find((m) => m.id === activeModuleId);
-          setTEMPORARY_REMOVE_SOON_activeModules((prev) => [
-            ...prev,
-            {
-              id: prev.length > 0 ? prev[prev.length - 1].id + 1 : 1,
-              x: intCoords[0],
-              y: intCoords[1],
-              module_details: {
-                id: Math.random(),
-                name: module?.name ?? "Hardcoded Foobar",
-                attributes: module?.attributes ?? {},
-              },
+          addModuleMutation.mutate({
+            moduleId: activeModuleId,
+            x: intCoords[0],
+            y: intCoords[1],
+            moduleDetails: {
+              id: Math.random(),
+              name: module?.name ?? "Hardcoded Foobar",
+              attributes: module?.attributes ?? {},
             },
-          ]);
+          });
         }
         // handle drop logic here if needed
       }}
@@ -858,8 +898,8 @@ function EditorPage() {
           </div>
         </header>
         <main className="flex flex-1 h-[calc(100vh-var(--header-height)-var(--footer-height))]">
-        <Toolbar />
-        <div className="flex-1 flex items-stretch">
+          <Toolbar />
+          <div className="flex-1 flex items-stretch">
             <div className="flex-1 bg-gradient-to-br from-background via-muted to-background">
               <RoomVisualization
                 roomDimensions={roomDimensions}

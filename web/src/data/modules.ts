@@ -105,3 +105,21 @@ export async function fetchActiveModules() {
     };
   };
 }
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function addActiveModuleFake(_unused: {
+  moduleId: string;
+  x: number;
+  y: number;
+  moduleDetails: {
+    id: number;
+    name: string;
+    attributes: Record<string, unknown>;
+  };
+}): Promise<Awaited<ReturnType<typeof fetchActiveModules>>> {
+  // Simulate network delay
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  // In a real implementation, you would POST to the backend here
+  // For now, just return the current active modules (simulate backend update)
+  return fetchActiveModules();
+}
