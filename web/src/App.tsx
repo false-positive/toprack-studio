@@ -83,7 +83,7 @@ function SplashScreen() {
   const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
   const [renameDialogOpen, setRenameDialogOpen] = useState<number | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<number | null>(null);
-  const [newProjectName, setNewProjectName] = useState("");
+  const [newProjectName, setNewProjectName] = useState("Untitled Project");
   const [renameValue, setRenameValue] = useState("");
   const [showVRStep, setShowVRStep] = useState(false);
   const navigate = useNavigate();
