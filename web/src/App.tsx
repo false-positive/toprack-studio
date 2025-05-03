@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
 import { fetchModules } from "./data/modules";
@@ -18,6 +18,7 @@ import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { useQuery } from "@tanstack/react-query";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import ModuleCard from "./components/ModuleCard";
+import L from "leaflet";
 
 function App() {
   const { data: loadedModules = [], isLoading: loading } = useQuery({
@@ -48,6 +49,17 @@ function App() {
   });
 
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
+
+  const mapRef = useRef<L.Map | null>(null);
+  const lastMousePosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  useEffect(() => {
+    function handleMouseMove(e: MouseEvent) {
+      lastMousePosition.current = { x: e.clientX, y: e.clientY };
+    }
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   const handleModulePlaced = (moduleId: string, position: [number, number]) => {
     setPlacedModules((prev) => [
@@ -105,8 +117,19 @@ function App() {
         const id = String(event.active.id).replace(/^module-/, "");
         setActiveModuleId(id);
       }}
-      onDragEnd={() => {
+      onDragEnd={(event) => {
         setActiveModuleId(null);
+        if (event.over && event.over.id === "room" && mapRef.current) {
+          const { x, y } = lastMousePosition.current;
+          const mapContainer = mapRef.current.getContainer();
+          const rect = mapContainer.getBoundingClientRect();
+          const point = L.point(x - rect.left, y - rect.top);
+          const latlng = mapRef.current.containerPointToLatLng(point);
+          const intCoords = [Math.round(latlng.lat), Math.round(latlng.lng)];
+          alert(
+            `Module dropped at map coordinates: ${intCoords[0]}, ${intCoords[1]}`
+          );
+        }
         // handle drop logic here if needed
       }}
       onDragCancel={() => setActiveModuleId(null)}
@@ -131,6 +154,7 @@ function App() {
                 modules={loadedModules}
                 onModuleRemoved={handleModuleRemoved}
                 onModuleRotated={handleModuleRotated}
+                mapRef={mapRef}
               />
             </div>
             {/* <ModuleCard

@@ -8,7 +8,6 @@ interface ModuleCardProps {
   module: Module;
   onClick?: () => void;
   draggable?: boolean;
-  isDragging?: boolean;
   highlight?: boolean;
 }
 
@@ -16,7 +15,6 @@ export default function ModuleCard({
   module,
   onClick,
   draggable = true,
-  isDragging = false,
   highlight = false,
 }: ModuleCardProps) {
   const dnd = useDraggable({ id: `module-${module.id}` });
@@ -31,11 +29,13 @@ export default function ModuleCard({
         "flex items-center gap-4 p-4 bg-card border border-border shadow-sm transition-transform hover:scale-[1.02] hover:shadow-md cursor-grab",
         {
           "bg-accent cursor-grabbing": highlight,
-          invisible: isDragging,
         }
       )}
       style={{
-        transform: transform ? CSS.Translate.toString(transform) : undefined,
+        transform:
+          transform && highlight
+            ? CSS.Translate.toString(transform)
+            : undefined,
       }}
       {...listeners}
       {...attributes}

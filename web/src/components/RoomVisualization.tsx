@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useEffect } from "react";
 import { MapContainer, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { Module } from "../../types";
@@ -22,6 +22,7 @@ interface RoomVisualizationProps {
   modules: Module[];
   onModuleRemoved: (id: string) => void;
   onModuleRotated: (id: string) => void;
+  mapRef: React.MutableRefObject<L.Map | null>;
 }
 
 // Component to handle map events and interactions
@@ -50,12 +51,11 @@ export default function RoomVisualization({
   modules,
   onModuleRemoved,
   onModuleRotated,
+  mapRef,
 }: RoomVisualizationProps) {
   const { setNodeRef } = useDroppable({
     id: "room",
   });
-
-  const mapRef = useRef<L.Map | null>(null);
 
   // Calculate bounds based on room dimensions
   const bounds: L.LatLngBoundsExpression = [
@@ -86,12 +86,13 @@ export default function RoomVisualization({
         bounds={bounds}
         className="h-full w-full"
         style={{ background: "#18181b" }}
-        whenReady={() => {
-          if (mapRef.current) {
-            mapRef.current.fitBounds(bounds);
-          }
-        }}
         attributionControl={false}
+        whenReady={
+          ((event) => {
+            mapRef.current = event.target;
+            event.target.fitBounds(bounds);
+          }) as any
+        }
       >
         {/* Room walls */}
         {wallPolylines.map((wall) => (
