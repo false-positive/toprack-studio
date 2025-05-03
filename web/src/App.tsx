@@ -107,7 +107,7 @@ function App() {
                 <header className="w-full h-(--header-height) border-b flex items-center border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0">
                     <div className="flex items-center gap-3 px-8 py-3">
                         <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-1.5">
-                            <Logo size={20} />
+                            <Logo size={28} />
                         </span>
                         <h1 className="text-base font-semibold tracking-tight">Data Center Editor</h1>
                     </div>
