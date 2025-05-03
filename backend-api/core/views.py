@@ -15,8 +15,17 @@ import logging
 from django.db import models
 from io import StringIO
 import sys
+from django.core.files.base import ContentFile
+from django.http import HttpResponse
+import uuid
 
 logger = logging.getLogger('django')
+
+# Single warmth image storage in memory
+warmth_image = {
+    'content': None,
+    'content_type': None
+}
 
 def custom_exception_handler(exc, context):
     from rest_framework.views import exception_handler
@@ -654,3 +663,40 @@ def validate_component_values(request, component_id=None):
             "violations": violations,
             "data_center": data_center_info
         }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+def upload_warmth_image(request):
+    """API endpoint to upload and store a single warmth image in memory"""
+    if 'image' not in request.FILES:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "message": "No image file provided"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    image_file = request.FILES['image']
+    
+    # Store the image content in memory
+    warmth_image['content'] = image_file.read()
+    warmth_image['content_type'] = image_file.content_type
+    
+    return Response({
+        "status": "success",
+        "status_code": status.HTTP_201_CREATED,
+        "message": "Warmth image uploaded successfully"
+    })
+
+@api_view(['GET'])
+def get_warmth_image(request):
+    """API endpoint to retrieve the warmth image stored in memory"""
+    if warmth_image['content'] is None:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "message": "No warmth image has been uploaded"
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    return HttpResponse(
+        warmth_image['content'],
+        content_type=warmth_image['content_type']
+    )

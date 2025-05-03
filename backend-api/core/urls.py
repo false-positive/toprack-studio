@@ -4,7 +4,8 @@ from .views import (
     ModuleViewSet, ActiveModuleViewSet, calculate_resources, 
     recalculate_values, validate_component_values,
     DataCenterComponentViewSet,
-    DataCenterViewSet, create_data_center
+    DataCenterViewSet, create_data_center,
+    upload_warmth_image, get_warmth_image
 )
 
 router = DefaultRouter()
@@ -20,4 +21,6 @@ urlpatterns = [
     path('create-data-center/', create_data_center, name='create-data-center'),
     path('validate-component-values/', validate_component_values, name='validate-component-values'),
     path('validate-component-values/<int:component_id>/', validate_component_values, name='validate-component-values-detail'),
+    path('warmth-image/upload/', upload_warmth_image, name='upload-warmth-image'),
+    path('warmth-image/', get_warmth_image, name='get-warmth-image'),
 ]
