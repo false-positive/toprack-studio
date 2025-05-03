@@ -1,0 +1,45 @@
+---
+description: Available API endpoints
+globs: 
+alwaysApply: false
+---
+# Backend API Endpoints Access Guide
+
+The backend API exposes several endpoints for interacting with modules and data center points. The base URL for all endpoints should be set generically as:
+
+```
+http://<host>:<port>/
+```
+
+Use `VITE_API_BASE_URL` env variable to address the base url. NEVER hardcode an endpoint!
+
+## Endpoints
+
+### Modules
+- `GET /api/modules/` — List all available modules.
+  - Returns: List of all modules with their properties (`name`, `is_input`, `is_output`, `unit`, `amount`).
+
+### Active Modules
+- `POST /api/active-modules/` — Place a module at specific coordinates.
+  - Required data (JSON):
+    ```json
+    {
+      "x": <int>,
+      "y": <int>,
+      "module": <int> // ID of an existing module
+    }
+    ```
+  - Returns: Created active module details.
+
+### Data Center Points
+- `POST /api/datacenter-points/` — Add a data center point at specific coordinates.
+  - Required data (JSON):
+    ```json
+    {
+      "x": <int>,
+      "y": <int>
+    }
+    ```
+  - Returns: Created data center point details.
+
+Refer to [backend-api/README.md](mdc:backend-api/README.md) for more details and example payloads.
