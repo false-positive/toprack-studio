@@ -20,7 +20,7 @@ import { DndContext, DragOverlay } from "@dnd-kit/core";
 import ModuleCard from "./components/ModuleCard";
 import L from "leaflet";
 import { ActiveModule } from "types";
-import { Route, Routes, Link } from "react-router";
+import { Route, Routes, Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -47,6 +47,7 @@ import {
   ChevronDown,
   ChevronUp,
   UploadCloud,
+  ScanLine,
 } from "lucide-react";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
@@ -78,6 +79,8 @@ function SplashScreen() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState<number | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
   const [renameValue, setRenameValue] = useState("");
+  const [showVRStep, setShowVRStep] = useState(false);
+  const navigate = useNavigate();
 
   // Mock data for module libraries and rulesets
   const mockLibraries = [
@@ -139,6 +142,47 @@ function SplashScreen() {
   // Split projects: first 2 are cards, rest are in the list
   const cardProjects = projects.slice(0, 2);
   const listProjects = projects.slice(2);
+
+  function handleRenameProject(id: number) {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, name: renameValue } : p))
+    );
+    setRenameDialogOpen(null);
+    setRenameValue("");
+  }
+
+  function handleDeleteProject(id: number) {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setDeleteDialogOpen(null);
+  }
+
+  async function handleBypassVRStep() {
+    try {
+      const resp = await fetch("/api/initialize-values-from-components/", {
+        method: "POST",
+      });
+      if (!resp.ok) throw new Error("Failed to initialize values");
+      // Create new project locally
+      const newId = Date.now();
+      setProjects((prev) => [
+        ...prev,
+        {
+          id: newId,
+          name: newProjectName || "Untitled Project",
+          lastOpenedAt: new Date().toISOString(),
+          library: selectedLibrary,
+          ruleset: selectedRuleset,
+          units,
+        },
+      ]);
+      setShowVRStep(false);
+      navigate(`/projects/${newId}`);
+    } catch (e) {
+      alert(
+        "Failed to initialize project: " + (e instanceof Error ? e.message : e)
+      );
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
@@ -512,7 +556,8 @@ function SplashScreen() {
                 <Button
                   variant="default"
                   onClick={() => {
-                    /* handle final create */ setNewProjectDialogOpen(false);
+                    setShowVRStep(true);
+                    setNewProjectDialogOpen(false);
                     setProjectStep(0);
                     setSelectedLibrary(null);
                     setSelectedRuleset(null);
@@ -533,6 +578,39 @@ function SplashScreen() {
           )}
         </DialogContent>
       </Dialog>
+      {/* VR Scan Step (unskippable, full-screen) */}
+      {showVRStep && (
+        <Dialog open={showVRStep}>
+          <DialogContent className="flex flex-col items-center justify-center min-h-[60vh] max-w-lg gap-8">
+            <div className="flex flex-col items-center gap-4 mt-8">
+              <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-6 mb-2 shadow-lg">
+                <ScanLine className="w-20 h-20" />
+              </span>
+              <h2 className="text-3xl font-bold text-center">
+                Scan Your Data Center in VR
+              </h2>
+              <p className="text-lg text-muted-foreground text-center max-w-md">
+                Put on your VR headset and scan the room to begin designing your
+                data center. This screen will wait for you to complete the scan
+                in VR.
+              </p>
+            </div>
+            <div className="flex flex-col items-center gap-2 mt-4">
+              <span className="animate-pulse text-primary text-2xl font-semibold">
+                Waiting for VR scan...
+              </span>
+              {/* TEMPORARY OVERRIDE BUTTON - REMOVE BEFORE PRODUCTION */}
+              <Button
+                variant="outline"
+                className="mt-6"
+                onClick={handleBypassVRStep}
+              >
+                Temporary: Skip VR Step
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
       {/* Rename Project Dialog */}
       <Dialog
         open={renameDialogOpen !== null}
@@ -678,19 +756,6 @@ function EditorPage() {
     const matchesType = typeFilter === "all" || module.type === typeFilter;
     return matchesSearch && matchesType;
   });
-
-  function handleRenameProject(id: number) {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, name: renameValue } : p))
-    );
-    setRenameDialogOpen(null);
-    setRenameValue("");
-  }
-
-  function handleDeleteProject(id: number) {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    setDeleteDialogOpen(null);
-  }
 
   if (modulesLoading || !activeModules) {
     return (
