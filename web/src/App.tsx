@@ -24,7 +24,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import L from "leaflet";
@@ -49,7 +49,11 @@ import ModuleCard from "./components/ModuleCard";
 import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
 import Toolbar from "./components/Toolbar";
-import { fetchActiveModules, fetchModules } from "./data/modules";
+import {
+  fetchActiveModules,
+  fetchModules,
+  addActiveModule,
+} from "./data/modules";
 import { Input } from "./components/ui/input";
 
 // Project type
@@ -61,6 +65,8 @@ interface Project {
 
 // Jotai atom for projects, persisted to localStorage
 const projectsAtom = atomWithStorage<Project[]>("projects", []);
+
+type ActiveModulesQueryResult = Awaited<ReturnType<typeof fetchActiveModules>>;
 
 function App() {
   return (
@@ -736,14 +742,58 @@ function EditorPage() {
   const mapRef = useRef<L.Map | null>(null);
   const lastMousePosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  const queryClient = useQueryClient();
+
   const { data: activeModules } = useQuery({
     queryKey: ["activeModules"],
     queryFn: () => fetchActiveModules(),
   });
 
-  const [, setTEMPORARY_REMOVE_SOON_activeModules] = useState<
-    Array<ActiveModule>
-  >([]);
+  const addModuleMutation = useMutation({
+    mutationFn: async ({
+      x,
+      y,
+      moduleId,
+    }: {
+      x: number;
+      y: number;
+      moduleId: string;
+    }) => {
+      return addActiveModule({ x, y, moduleId });
+    },
+    onMutate: async (newModule) => {
+      await queryClient.cancelQueries({ queryKey: ["activeModules"] });
+      const previous = queryClient.getQueryData<ActiveModulesQueryResult>([
+        "activeModules",
+      ]);
+      // Optimistically add the new module to the cache
+      if (previous && previous.data) {
+        queryClient.setQueryData(["activeModules"], {
+          ...previous,
+          data: [
+            ...previous.data,
+            {
+              id: Math.random(),
+              x: newModule.x,
+              y: newModule.y,
+              module_details: loadedModules.find(
+                (m) => m.id === newModule.moduleId
+              ),
+            },
+          ],
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _newModule, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["activeModules"], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["activeModules"] });
+    },
+  });
 
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
@@ -800,20 +850,11 @@ function EditorPage() {
             Math.round(latlng.lat),
             Math.round(latlng.lng),
           ];
-          const module = loadedModules.find((m) => m.id === activeModuleId);
-          setTEMPORARY_REMOVE_SOON_activeModules((prev) => [
-            ...prev,
-            {
-              id: prev.length > 0 ? prev[prev.length - 1].id + 1 : 1,
-              x: intCoords[0],
-              y: intCoords[1],
-              module_details: {
-                id: Math.random(),
-                name: module?.name ?? "Hardcoded Foobar",
-                attributes: module?.attributes ?? {},
-              },
-            },
-          ]);
+          addModuleMutation.mutate({
+            x: intCoords[0],
+            y: intCoords[1],
+            moduleId: activeModuleId,
+          });
         }
         // handle drop logic here if needed
       }}

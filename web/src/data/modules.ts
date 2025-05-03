@@ -123,3 +123,31 @@ export async function addActiveModuleFake(_unused: {
   // For now, just return the current active modules (simulate backend update)
   return fetchActiveModules();
 }
+
+export async function addActiveModule({
+  x,
+  y,
+  moduleId,
+  dataCenterComponentId,
+}: {
+  x: number;
+  y: number;
+  moduleId: string | number;
+  dataCenterComponentId?: number;
+}): Promise<ActiveModule> {
+  const body: Record<string, unknown> = {
+    x,
+    y,
+    module: moduleId,
+  };
+  if (dataCenterComponentId) {
+    body.data_center_component = dataCenterComponentId;
+  }
+  const response = await fetch(`${API_BASE_URL}/api/active-modules/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error("Failed to add active module");
+  return response.json();
+}
