@@ -5,8 +5,26 @@ from .models import Module, ActiveModule, DataCenterPoints
 from .serializers import ModuleSerializer, ActiveModuleSerializer, DataCenterPointsSerializer
 from .services import ModuleService, ActiveModuleService, ModuleCalculationService, DataCenterValueService, DataCenterSpecsService
 import logging
+from rest_framework.renderers import JSONRenderer
 
 logger = logging.getLogger(__name__)
+
+def custom_exception_handler(exc, context):
+    from rest_framework.views import exception_handler
+    
+    # Call REST framework's default exception handler first
+    response = exception_handler(exc, context)
+    
+    # Now add the HTTP status code to the response
+    if response is not None:
+        response.data = {
+            'status': 'error',
+            'status_code': response.status_code,
+            'message': str(exc),
+            'data': response.data
+        }
+    
+    return response
 
 class ModuleViewSet(viewsets.ModelViewSet):
     queryset = Module.objects.all()
@@ -14,6 +32,26 @@ class ModuleViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         return ModuleService.get_all_modules()
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'status_code': status.HTTP_200_OK,
+            'message': 'Modules retrieved successfully',
+            'data': serializer.data
+        })
+    
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            'status': 'success',
+            'status_code': status.HTTP_200_OK,
+            'message': 'Module retrieved successfully',
+            'data': serializer.data
+        })
 
 class ActiveModuleViewSet(viewsets.ModelViewSet):
     queryset = ActiveModule.objects.all()
@@ -54,7 +92,12 @@ def calculate_resources(request):
     """API endpoint to calculate resource usage"""
     active_modules = ActiveModuleService.get_all_active_modules()
     results = ModuleCalculationService.calculate_resource_usage(active_modules)
-    return Response(results)
+    return Response({
+        'status': 'success',
+        'status_code': status.HTTP_200_OK,
+        'message': 'Resources calculated successfully',
+        'data': results
+    })
 
 @api_view(['POST'])
 def recalculate_values(request):

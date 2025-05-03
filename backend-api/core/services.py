@@ -86,36 +86,54 @@ class DataCenterValueService:
     def initialize_values_from_specs():
         """
         Initialize DataCenterValue objects from unique units in DataCenterSpecs
-        Sets Space_X to 3000 and Space_Y to 2000, all others to 0
+        Sets initial values based on the constraints in the specs
         """
         # Get unique units from DataCenterSpecs
-        unique_units = DataCenterSpecs.objects.values_list('unit', flat=True).distinct()
+        unique_units = set(DataCenterSpecs.objects.values_list('unit', flat=True).distinct())
         logger.info(f"Found {len(unique_units)} unique units in specs")
         
-        # Create or update DataCenterValue for each unit
+        # Get all specs to determine initial values
+        all_specs = DataCenterSpecs.objects.all()
+        
+        # Create a dictionary to store initial values for each unit
+        initial_values = {}
+        
+        # Special handling for Space_X and Space_Y if they exist in specs
+        if 'Space_X' in unique_units:
+            initial_values['Space_X'] = 3000  # Total available space in X dimension
+        if 'Space_Y' in unique_units:
+            initial_values['Space_Y'] = 2000  # Total available space in Y dimension
+        
+        # Determine initial values based on constraints
         for unit in unique_units:
-            default_value = 0
-            if unit == 'Space_X':
-                default_value = 3000
-            elif unit == 'Space_Y':
-                default_value = 2000
+            # Default to 0 if not already set
+            if unit not in initial_values:
+                initial_values[unit] = 0
+            
+            # Find specs for this unit
+            unit_specs = all_specs.filter(unit=unit)
+            
+            for spec in unit_specs:
+                # For Price, set to 0 initially
+                if unit == 'Price':
+                    initial_values[unit] = 0
+                    continue
                 
-            # Try to get existing value
+                # If there's an above_amount constraint, set value to 0 (needs to be increased)
+                if spec.above_amount == 1 and spec.amount > 0 and unit not in ['Space_X', 'Space_Y']:
+                    # For "above" constraints, start at 0 to force adding modules
+                    initial_values[unit] = 0
+        
+        # Create or update DataCenterValue for each unit
+        for unit, value in initial_values.items():
             try:
-                value = DataCenterValue.objects.get(unit=unit)
-                # Update existing value if it's Space_X or Space_Y
-                if unit == 'Space_X':
-                    value.value = 3000
-                    value.save()
-                    logger.info(f"Updated DataCenterValue for {unit}: {value.value}")
-                elif unit == 'Space_Y':
-                    value.value = 2000
-                    value.save()
-                    logger.info(f"Updated DataCenterValue for {unit}: {value.value}")
+                value_obj = DataCenterValue.objects.get(unit=unit)
+                value_obj.value = value
+                value_obj.save()
+                logger.info(f"Updated DataCenterValue for {unit}: {value}")
             except DataCenterValue.DoesNotExist:
-                # Create new value
-                value = DataCenterValue.objects.create(unit=unit, value=default_value)
-                logger.info(f"Created DataCenterValue for {unit}: {value.value}")
+                value_obj = DataCenterValue.objects.create(unit=unit, value=value)
+                logger.info(f"Created DataCenterValue for {unit}: {value}")
         
         return DataCenterValue.objects.all()
     
@@ -125,10 +143,14 @@ class DataCenterValueService:
         # Get all active modules
         active_modules = ActiveModule.objects.all().select_related('module')
         
-        # Create a dictionary to store unit totals
-        unit_totals = {}
+        # Get all valid units from DataCenterSpecs
+        valid_units = set(DataCenterSpecs.objects.values_list('unit', flat=True).distinct())
+        logger.info(f"Valid units from DataCenterSpecs: {valid_units}")
         
-        # Calculate totals for each unit
+        # Create a dictionary to store unit totals (initialize with 0 for all valid units)
+        unit_totals = {unit: 0 for unit in valid_units}
+        
+        # Calculate totals for each unit from active modules
         for am in active_modules:
             # Get all attributes for this module
             attributes = ModuleAttribute.objects.filter(module=am.module)
@@ -137,23 +159,23 @@ class DataCenterValueService:
                 unit = attr.unit
                 amount = attr.amount
                 
-                if unit in unit_totals:
+                # Only update totals for units that are defined in DataCenterSpecs
+                if unit in valid_units:
                     unit_totals[unit] += amount
-                    logger.debug(f"Adding {amount} to existing total for {unit}, new total: {unit_totals[unit]}")
-                else:
-                    unit_totals[unit] = amount
-                    logger.debug(f"Setting initial total for {unit}: {amount}")
+                    logger.debug(f"Adding {amount} to total for {unit}, new total: {unit_totals[unit]}")
         
-        logger.info(f"Calculated unit totals: {unit_totals}")
+        logger.info(f"Calculated unit totals for valid units: {unit_totals}")
         
-        # Update DataCenterValue objects
-        for unit, total in unit_totals.items():
-            try:
-                value_obj = DataCenterValue.objects.get(unit=unit)
-                old_value = value_obj.value
-            except DataCenterValue.DoesNotExist:
-                value_obj = DataCenterValue(unit=unit, value=0)
-                old_value = 0
+        # Ensure all DataCenterValue objects exist for valid units
+        for unit in valid_units:
+            # Get or create the DataCenterValue object
+            value_obj, created = DataCenterValue.objects.get_or_create(
+                unit=unit, 
+                defaults={'value': 0}
+            )
+            
+            old_value = value_obj.value
+            total = unit_totals[unit]
             
             # For Space_X and Space_Y, we subtract from the initial value
             if unit in ['Space_X', 'Space_Y']:
