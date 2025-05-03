@@ -6,10 +6,23 @@ import RoomVisualization from "./components/RoomVisualization";
 import { fetchModules } from "./data/modules";
 import type { Module } from "../types";
 import { Sparkles } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
 
 function App() {
   const [loadedModules, setLoadedModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
 
   const [placedModules, setPlacedModules] = useState<
     Array<{
@@ -69,6 +82,20 @@ function App() {
     );
   };
 
+  // Compute unique types for the Select
+  const moduleTypes = Array.from(
+    new Set(loadedModules.map((m) => m.type).filter(Boolean))
+  );
+
+  // Filter modules based on search and type
+  const filteredModules = loadedModules.filter((module) => {
+    const matchesSearch =
+      search.trim() === "" ||
+      module.name.toLowerCase().includes(search.trim().toLowerCase());
+    const matchesType = typeFilter === "all" || module.type === typeFilter;
+    return matchesSearch && matchesType;
+  });
+
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background">
@@ -105,20 +132,54 @@ function App() {
             <aside className="w-80 max-w-xs border-l border-border bg-card/90 h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6">
               <div className="mb-6">
                 <h2 className="text-lg font-bold mb-4">Module Library</h2>
-                <div className="flex flex-col gap-2 bg-muted/50 rounded-lg p-3 mb-4">
-                  <input
-                    type="text"
-                    placeholder="Search modules..."
-                    className="input input-bordered w-full text-sm bg-background text-foreground border-border"
-                  />
-                  <select className="select select-bordered w-full text-sm bg-background text-foreground border-border">
-                    <option value="">All Types</option>
-                    {/* Dynamically render types here if needed */}
-                  </select>
-                </div>
+                <Card>
+                  <CardContent>
+                    <div className="flex flex-col gap-2">
+                      <Label
+                        htmlFor="module-search"
+                        className="text-xs text-muted-foreground"
+                      >
+                        Search modules
+                      </Label>
+                      <Input
+                        id="module-search"
+                        type="text"
+                        placeholder="Search modules..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full text-sm bg-background text-foreground border-border"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label
+                        htmlFor="type-filter"
+                        className="text-xs text-muted-foreground"
+                      >
+                        Type
+                      </Label>
+                      <Select value={typeFilter} onValueChange={setTypeFilter}>
+                        <SelectTrigger
+                          id="type-filter"
+                          className="w-full text-sm bg-background text-foreground border-border"
+                        >
+                          <SelectValue placeholder="All Types" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Types</SelectItem>
+                          {moduleTypes.map((type) => (
+                            <SelectItem key={type} value={type}>
+                              {type}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Separator className="mb-4 bg-border" />
               </div>
               <ModuleLibrary
-                modules={loadedModules}
+                modules={filteredModules}
                 onModulePlaced={handleModulePlaced}
               />
             </aside>
