@@ -1,3 +1,4 @@
+import random
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
@@ -15,7 +16,6 @@ import logging
 from django.db import models
 from io import StringIO
 import sys
-from django.core.files.base import ContentFile
 from django.http import HttpResponse
 import uuid
 
@@ -334,18 +334,22 @@ def create_data_center(request):
         sys.stderr = stderr
         
         # Import directly from memory - remove DataCenter from this import
-        from core.models import Module, ModuleAttribute, DataCenterComponent, DataCenterComponentAttribute
+        from core.models import Module, ModuleAttribute, DataCenterComponent, DataCenterComponentAttribute, ActiveModule
         from core.services import DataCenterValueService
         import csv
         
         # Clean database if requested
         if clean_db:
             print("Cleaning database before import...")
+            # Delete all related records
+            ActiveModule.objects.all().delete()
             ModuleAttribute.objects.all().delete()
             Module.objects.all().delete()
             DataCenterComponentAttribute.objects.all().delete()
             DataCenterComponent.objects.all().delete()
             DataCenterValue.objects.all().delete()
+            # Don't delete DataCenter objects to preserve existing data centers
+            print("Database cleaned successfully")
         
         # Process modules file if provided
         if modules_file:
@@ -700,3 +704,63 @@ def get_warmth_image(request):
         warmth_image['content'],
         content_type=warmth_image['content_type']
     )
+
+@api_view(['POST'])
+def initialize_values_from_components(request):
+    """API endpoint to initialize DataCenterValues from existing components"""
+    try:
+        # Generate a random name if not provided
+        data_center_name = request.data.get('name')
+        if not data_center_name:
+            random_suffix = ''.join([str(random.randint(0, 9)) for _ in range(3)])
+            data_center_name = f"DataCenter{random_suffix}"
+        
+        # Check if a data center with this name already exists
+        if DataCenter.objects.filter(name=data_center_name).exists():
+            return Response({
+                "status": "error",
+                "status_code": status.HTTP_400_BAD_REQUEST,
+                "message": f"A data center with the name '{data_center_name}' already exists"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Get or create the data center with the specified name
+        from backend.settings import DataCenterConstants
+        
+        data_center, created = DataCenter.objects.get_or_create(
+            name=data_center_name,
+            defaults={
+                'space_x': DataCenterConstants.SPACE_X_INITIAL,
+                'space_y': DataCenterConstants.SPACE_Y_INITIAL
+            }
+        )
+        
+        if created:
+            # Create default rectangle points
+            points = [
+                Point.objects.get_or_create(x=0, y=0)[0],
+                Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=0)[0],
+                Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=DataCenterConstants.SPACE_Y_INITIAL)[0],
+                Point.objects.get_or_create(x=0, y=DataCenterConstants.SPACE_Y_INITIAL)[0]
+            ]
+            data_center.points.add(*points)
+        
+        # Initialize values with the data center
+        from core.services import DataCenterValueService
+        values = DataCenterValueService.initialize_values_from_components(data_center)
+        
+        # Serialize the data center to return it in the response
+        serializer = DataCenterSerializer(data_center)
+        
+        return Response({
+            "status": "success",
+            "status_code": status.HTTP_201_CREATED,
+            "message": f"DataCenterValues initialized successfully for '{data_center_name}'",
+            "data": serializer.data,
+            "values_count": len(values)
+        })
+    except Exception as e:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "message": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
