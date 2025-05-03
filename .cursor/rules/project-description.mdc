@@ -43,3 +43,12 @@ This project addresses a Siemens Energy hackathon challenge: enabling clients to
 
 ## Summary
 This project combines a flexible, immersive design interface with a robust, generic rule engine driven by CSV data. It bridges the gap between real-world spatial design and abstract constraint logic, offering a powerful, extensible solution for data center planning and configuration. The approach maximizes both user experience and technical robustness, making it a strong contender for hackathon success.
+
+## Directory structure
+
+ALWAYS check if you are in the correct directory!!!
+
+- `web/` - root of vite app
+- `backend-api/` - root of django app
+
+Before running commands make sure you are in the right directory!
