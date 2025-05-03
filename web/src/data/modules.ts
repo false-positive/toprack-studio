@@ -151,3 +151,10 @@ export async function addActiveModule({
   if (!response.ok) throw new Error("Failed to add active module");
   return response.json();
 }
+
+export async function deleteActiveModule(id: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/active-modules/${id}/`, {
+    method: "DELETE",
+  });
+  if (!response.ok) throw new Error("Failed to delete active module");
+}

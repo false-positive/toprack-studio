@@ -3,9 +3,13 @@ import type { ActiveModule } from "../../types";
 
 interface PlacedModuleProps {
   activeModule: ActiveModule;
+  onDelete?: (id: number) => void;
 }
 
-export default function PlacedModule({ activeModule }: PlacedModuleProps) {
+export default function PlacedModule({
+  activeModule,
+  onDelete,
+}: PlacedModuleProps) {
   const spaceXIdk = activeModule.module_details.attributes.Space_X.amount;
   const spaceYIdk = activeModule.module_details.attributes.Space_Y.amount;
   const spaceX = typeof spaceXIdk === "number" ? spaceXIdk : 10;
@@ -18,6 +22,13 @@ export default function PlacedModule({ activeModule }: PlacedModuleProps) {
         [activeModule.x + spaceX / 2, activeModule.y + spaceY / 2],
       ]}
       pathOptions={{ color: "#38bdf8", weight: 2, fillOpacity: 0.3 }}
+      eventHandlers={{
+        click: (event) => {
+          if (event.originalEvent && event.originalEvent.ctrlKey && onDelete) {
+            onDelete(activeModule.id);
+          }
+        },
+      }}
     >
       <Popup>
         <div className="flex flex-col gap-2">

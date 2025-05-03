@@ -53,6 +53,7 @@ import {
   fetchActiveModules,
   fetchModules,
   addActiveModule,
+  deleteActiveModule,
 } from "./data/modules";
 import { Input } from "./components/ui/input";
 
@@ -795,6 +796,31 @@ function EditorPage() {
     },
   });
 
+  const deleteModuleMutation = useMutation({
+    mutationFn: async (id: number) => deleteActiveModule(id),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ["activeModules"] });
+      const previous = queryClient.getQueryData<ActiveModulesQueryResult>([
+        "activeModules",
+      ]);
+      if (previous && previous.data) {
+        queryClient.setQueryData(["activeModules"], {
+          ...previous,
+          data: previous.data.filter((mod) => mod.id !== id),
+        });
+      }
+      return { previous };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previous) {
+        queryClient.setQueryData(["activeModules"], context.previous);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["activeModules"] });
+    },
+  });
+
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
       lastMousePosition.current = { x: e.clientX, y: e.clientY };
@@ -880,6 +906,7 @@ function EditorPage() {
                 modules={loadedModules}
                 mapRef={mapRef}
                 activeModules={activeModules.data}
+                onDeleteModule={(id) => deleteModuleMutation.mutate(id)}
               />
             </div>
             <aside className="w-80 max-w-xs border-l border-border bg-card/90 h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6">

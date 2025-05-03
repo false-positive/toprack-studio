@@ -17,6 +17,7 @@ interface RoomVisualizationProps {
   modules: Module[];
   mapRef: React.MutableRefObject<L.Map | null>;
   activeModules: Array<ActiveModule>;
+  onDeleteModule?: (id: number) => void;
 }
 
 // Component to handle map events and interactions
@@ -43,6 +44,7 @@ export default function RoomVisualization({
   roomDimensions,
   activeModules,
   mapRef,
+  onDeleteModule,
 }: RoomVisualizationProps) {
   const { setNodeRef } = useDroppable({
     id: "room",
@@ -130,7 +132,13 @@ export default function RoomVisualization({
 
         {/* Placed modules */}
         {activeModules.map((activeModule, i) => {
-          return <PlacedModule key={i} activeModule={activeModule} />;
+          return (
+            <PlacedModule
+              key={i}
+              activeModule={activeModule}
+              onDelete={onDeleteModule}
+            />
+          );
         })}
 
         {/* Event handlers */}
