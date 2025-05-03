@@ -207,7 +207,7 @@ function SplashScreen() {
       >
         <header className="flex flex-col items-center gap-1 mt-6 mb-2">
           <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-2 mb-1">
-            <Sparkles className="h-6 w-6" />
+            <LLogo className="size-6" />
           </span>
           <h1 className="text-2xl font-bold tracking-tight">
             Welcome to Data Center Designer
@@ -888,14 +888,14 @@ function EditorPage() {
     >
       <div className="flex flex-col min-h-screen bg-background text-foreground dark">
         <header className="w-full h-(--header-height) border-b flex items-center border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0">
-          <div className="flex items-center gap-3 px-8 py-3">
+          <Link to="/" className="flex items-center gap-3 px-8 py-3">
             <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-1.5">
               <LLogo className="size-6" />
             </span>
             <h1 className="text-base font-semibold tracking-tight">
               {currentProject ? currentProject.name : "Data Center Editor"}
             </h1>
-          </div>
+          </Link>
         </header>
         <main className="flex flex-1 h-[calc(100vh-var(--header-height)-var(--footer-height))]">
           <Toolbar />
