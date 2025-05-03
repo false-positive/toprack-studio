@@ -61,35 +61,26 @@ class Command(BaseCommand):
 
     def detect_delimiter_and_read(self, file_obj):
         """Detect delimiter in CSV file and return a DictReader"""
-        # Read a sample of the file to detect the delimiter
         sample = file_obj.read(4096)
         
-        # Try to decode the sample
         try:
             sample_text = sample.decode('utf-8')
         except UnicodeDecodeError:
-            # If UTF-8 fails, try another common encoding
             sample_text = sample.decode('latin-1')
         
-        # Count occurrences of common delimiters
         delimiters = [',', ';', '\t', '|']
         counts = {d: sample_text.count(d) for d in delimiters}
         
-        # Choose the delimiter with the highest count
         delimiter = max(counts.items(), key=lambda x: x[1])[0]
         
-        # Reset file pointer to the beginning
         file_obj.seek(0)
         
-        # Try to decode the entire file
         try:
             text = file_obj.read().decode('utf-8')
         except UnicodeDecodeError:
-            # If UTF-8 fails, try another common encoding
             file_obj.seek(0)
             text = file_obj.read().decode('latin-1')
         
-        # Create a CSV reader with the detected delimiter
         reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
         
         self.stdout.write(f"Detected delimiter: '{delimiter}'")
@@ -106,14 +97,10 @@ class Command(BaseCommand):
             with open(path, 'rb') as f:
                 reader = self.detect_delimiter_and_read(f)
                 
-                # Create a dictionary to store modules
                 modules = {}
                 
-                # First pass: Create all modules
                 for row in reader:
                     module_name = row['Name']
-                    
-                    # Create module if it doesn't exist
                     if module_name not in modules:
                         module, created = Module.objects.get_or_create(name=module_name)
                         modules[module_name] = module
@@ -121,17 +108,14 @@ class Command(BaseCommand):
                         if created:
                             self.stdout.write(f"Created module: {module_name}")
                 
-                # Reset file and reader for second pass
                 f.seek(0)
                 reader = self.detect_delimiter_and_read(f)
                 
-                # Second pass: Create all module attributes
                 count = 0
                 for row in reader:
                     module_name = row['Name']
                     module = modules[module_name]
                     
-                    # Create module attribute
                     ModuleAttribute.objects.create(
                         module=module,
                         unit=row['Unit'],
@@ -157,14 +141,11 @@ class Command(BaseCommand):
             with open(path, 'rb') as f:
                 reader = self.detect_delimiter_and_read(f)
 
-                # Create a dictionary to store components
                 components = {}
                 
-                # First pass: Create all components
                 for row in reader:
                     component_name = row['Name']
                     
-                    # Create component if it doesn't exist
                     if component_name not in components:
                         component, created = DataCenterComponent.objects.get_or_create(name=component_name)
                         components[component_name] = component
@@ -172,17 +153,14 @@ class Command(BaseCommand):
                         if created:
                             self.stdout.write(f"Created component: {component_name}")
                 
-                # Reset file and reader for second pass
                 f.seek(0)
                 reader = self.detect_delimiter_and_read(f)
                 
-                # Second pass: Create all component attributes
                 count = 0
                 for row in reader:
                     component_name = row['Name']
                     component = components[component_name]
                     
-                    # Create component attribute
                     DataCenterComponentAttribute.objects.create(
                         component=component,
                         unit=row['Unit'],
@@ -207,7 +185,6 @@ class Command(BaseCommand):
             from core.services import DataCenterValueService
             from core.models import DataCenter
         
-            # Get or create the data center with the specified name
             data_center, created = DataCenter.objects.get_or_create(
                 name=data_center_name,
                 defaults={
@@ -218,7 +195,6 @@ class Command(BaseCommand):
         
             if created:
                 from core.models import Point
-                # Create default rectangle points
                 points = [
                     Point.objects.get_or_create(x=0, y=0)[0],
                     Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=0)[0],
@@ -228,7 +204,6 @@ class Command(BaseCommand):
                 data_center.points.add(*points)
                 self.stdout.write(f"Created new data center: {data_center_name}")
         
-            # Initialize values with the data center
             values = DataCenterValueService.initialize_values_from_components(data_center)
         
             self.stdout.write(self.style.SUCCESS(f"Initialized {len(values)} DataCenterValues for {data_center.name}"))

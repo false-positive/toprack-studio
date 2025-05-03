@@ -47,7 +47,7 @@ class DataCenterSerializer(serializers.ModelSerializer):
     
     def get_points(self, obj):
         """Get all points associated with this data center"""
-        points = obj.points.all().order_by('id')  # Order by ID to maintain consistent order
+        points = obj.points.all().order_by('id')
         return PointSerializer(points, many=True).data
     
     def get_width(self, obj):
@@ -62,7 +62,6 @@ class DataCenterSerializer(serializers.ModelSerializer):
         """Create a new data center with default rectangular shape"""
         data_center = DataCenter.objects.create(**validated_data)
         
-        # Points will be added automatically in the save method
         return data_center
 
 class PointSerializer(serializers.ModelSerializer):
@@ -163,14 +162,11 @@ class ActiveModuleSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new active module with a point"""
-        # Extract x and y from validated data
         x = validated_data.pop('x')
         y = validated_data.pop('y')
         
-        # Create or get the point
         point, created = Point.objects.get_or_create(x=x, y=y)
         
-        # Create the active module with the point
         active_module = ActiveModule.objects.create(
             point=point,
             **validated_data
@@ -180,14 +176,11 @@ class ActiveModuleSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         """Update only the point of an active module"""
-        # Extract x and y from validated data
         x = validated_data.pop('x')
         y = validated_data.pop('y')
         
-        # Create or get the point
         point, created = Point.objects.get_or_create(x=x, y=y)
         
-        # Update only the point
         instance.point = point
         instance.save()
         

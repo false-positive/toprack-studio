@@ -54,7 +54,6 @@ class DataCenter(models.Model):
         """Override save to ensure at least one point exists"""
         super().save(*args, **kwargs)
         
-        # Ensure at least the origin point exists
         if not self.points.exists():
             # Create a rectangle by default
             points = [
