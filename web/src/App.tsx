@@ -17,6 +17,7 @@ import {
   SelectItem,
   SelectValue,
 } from "@/components/ui/select";
+import { ScrollArea } from "@radix-ui/react-scroll-area";
 
 function App() {
   const [loadedModules, setLoadedModules] = useState<Module[]>([]);
@@ -108,7 +109,7 @@ function App() {
   return (
     <DndProvider backend={HTML5Backend}>
       <div className="flex flex-col min-h-screen bg-background text-foreground dark">
-        <header className="w-full border-b border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0">
+        <header className="w-full h-(--header-height) border-b flex items-center border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0">
           <div className="flex items-center gap-3 px-8 py-3">
             <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-1.5">
               <Sparkles className="h-4 w-4" />
@@ -118,7 +119,7 @@ function App() {
             </h1>
           </div>
         </header>
-        <main className="flex flex-1 overflow-hidden">
+        <main className="flex flex-1 h-[calc(100vh-var(--header-height)-var(--footer-height))]">
           <div className="flex-1 flex items-stretch">
             <div className="flex-1 relative bg-gradient-to-br from-background via-muted to-background">
               <RoomVisualization
@@ -178,10 +179,12 @@ function App() {
                 </Card>
                 <Separator className="mb-4 bg-border" />
               </div>
-              <ModuleLibrary
-                modules={filteredModules}
-                onModulePlaced={handleModulePlaced}
-              />
+              <ScrollArea className="h-[200px]">
+                <ModuleLibrary
+                  modules={filteredModules}
+                  onModulePlaced={handleModulePlaced}
+                />
+              </ScrollArea>
             </aside>
           </div>
         </main>
