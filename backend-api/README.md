@@ -352,7 +352,9 @@ The backend API provides the following essential endpoints:
 
 - `GET /api/active-modules/` - List all placed modules
 
-  - Returns: List of all active modules with detailed module information
+  - Query parameters:
+    - `data_center`: Optional data center ID to filter modules by data center
+  - Returns: List of all active modules with detailed module information, data center details, and resource calculations
   - Example response:
     ```json
     {
@@ -389,7 +391,24 @@ The backend API provides the following essential endpoints:
           },
           "component_name": "Server_Square"
         }
-      ]
+      ],
+      "data_center": {
+        "id": 1,
+        "name": "Default Data Center",
+        "space_x": 1000,
+        "space_y": 500,
+        "space_x_used": 40,
+        "space_y_used": 0,
+        "space_x_available": 960,
+        "space_y_available": 500
+      },
+      "resources": {
+        "Grid_Connection": -1,
+        "Space_X": 40,
+        "Usable_Power": 100,
+        "Space_X_Available": 960,
+        "Space_Y_Available": 500
+      }
     }
     ```
 

@@ -68,12 +68,54 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         """List all active modules with detailed information"""
         queryset = self.filter_queryset(self.get_queryset())
+        
+        # Get data center parameter if provided
+        data_center_id = request.query_params.get('data_center', None)
+        if data_center_id:
+            try:
+                data_center = DataCenter.objects.get(id=data_center_id)
+                queryset = queryset.filter(
+                    models.Q(data_center=data_center) | 
+                    models.Q(data_center_component__data_center=data_center)
+                )
+            except DataCenter.DoesNotExist:
+                pass
+        
         serializer = self.get_serializer(queryset, many=True)
+        
+        # Get the data center for additional info
+        data_center = None
+        if data_center_id:
+            try:
+                data_center = DataCenter.objects.get(id=data_center_id)
+            except DataCenter.DoesNotExist:
+                data_center = DataCenter.get_default()
+        else:
+            data_center = DataCenter.get_default()
+            
+        # Get resource calculations for this data center
+        active_modules = ActiveModuleService.get_all_active_modules(data_center)
+        resources = ModuleCalculationService.calculate_resource_usage(active_modules, data_center)
+        
+        # Add data center info to the response
+        data_center_info = {
+            "id": data_center.id,
+            "name": data_center.name,
+            "space_x": data_center.space_x,
+            "space_y": data_center.space_y,
+            "space_x_used": resources.get('Space_X', 0),
+            "space_y_used": resources.get('Space_Y', 0),
+            "space_x_available": resources.get('Space_X_Available', data_center.space_x),
+            "space_y_available": resources.get('Space_Y_Available', data_center.space_y)
+        }
+        
         return Response({
             "status": "success",
             "status_code": status.HTTP_200_OK,
             "message": "Active modules retrieved successfully",
-            "data": serializer.data
+            "data": serializer.data,
+            "data_center": data_center_info,
+            "resources": resources
         })
 
     def retrieve(self, request, *args, **kwargs):

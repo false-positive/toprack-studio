@@ -40,7 +40,8 @@ class ActiveModuleSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ActiveModule
-        fields = ['id', 'x', 'y', 'module', 'data_center_component', 'module_details', 'component_name']
+        fields = ['id', 'x', 'y', 'module', 'data_center_component', 'module_details', 
+                 'component_name']
         read_only_fields = ['id', 'module_details', 'component_name']
     
     def get_module_details(self, obj):
