@@ -187,6 +187,33 @@ For more detailed validation information:
 GET /api/validate-component-values/
 ```
 
+### 8. Warmth Image Management
+
+The API provides endpoints to upload and retrieve a warmth image for visualization purposes:
+
+**Upload a warmth image:**
+
+```
+POST /api/warmth-image/upload/
+```
+
+Example request:
+
+```
+# Using form-data
+image: [file upload]
+```
+
+This endpoint stores the image in memory for later retrieval. Only one image can be stored at a time - uploading a new image will replace any previously stored image.
+
+**Retrieve the warmth image:**
+
+```
+GET /api/warmth-image/
+```
+
+This endpoint returns the most recently uploaded warmth image. If no image has been uploaded, it returns a 404 error.
+
 This workflow allows you to iteratively design and optimize your data center layout while ensuring all constraints are satisfied.
 
 ## Data Models
