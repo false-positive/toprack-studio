@@ -8,3 +8,4 @@ WARNING 2025-05-03 03:11:12,057 log Bad Request: /api/active-modules/9/
 WARNING 2025-05-03 03:18:55,327 log Bad Request: /api/validate-values/
 WARNING 2025-05-03 03:22:38,530 log Bad Request: /api/validate-values/
 WARNING 2025-05-03 03:26:07,341 log Bad Request: /api/validate-values/
+WARNING 2025-05-03 04:15:07,656 log Bad Request: /api/active-modules/

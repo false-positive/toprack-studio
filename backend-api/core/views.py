@@ -115,15 +115,48 @@ def recalculate_values(request):
 @api_view(['GET'])
 def validate_values(request):
     """API endpoint to validate current DataCenterValues against specs"""
+    # Get all specs for logging
+    all_specs = DataCenterSpecs.objects.all()
+    specs_info = []
+    
+    for spec in all_specs:
+        constraint_type = []
+        if spec.below_amount == 1:
+            constraint_type.append(f"below {spec.amount}")
+        if spec.above_amount == 1:
+            constraint_type.append(f"above {spec.amount}")
+        if spec.minimize == 1:
+            constraint_type.append("minimize")
+        if spec.maximize == 1:
+            constraint_type.append("maximize")
+        if spec.unconstrained == 1:
+            constraint_type.append("unconstrained")
+            
+        specs_info.append({
+            "name": spec.name,
+            "unit": spec.unit,
+            "amount": spec.amount,
+            "constraints": constraint_type
+        })
+    
+    # Get all current values
+    all_values = {value.unit: value.value for value in DataCenterValue.objects.all()}
+    
+    # Perform validation
     validation_result = DataCenterSpecsService.validate_current_values()
     
     if validation_result:
-        return Response({"status": "All specifications validated successfully"})
+        return Response({
+            "status": "All specifications validated successfully",
+            "specs": specs_info,
+            "current_values": all_values
+        })
     else:
-        return Response(
-            {"status": "Validation failed, see logs for details"}, 
-            status=status.HTTP_400_BAD_REQUEST
-        )
+        return Response({
+            "status": "Validation failed, see logs for details",
+            "specs": specs_info,
+            "current_values": all_values
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 def initialize_values(request):

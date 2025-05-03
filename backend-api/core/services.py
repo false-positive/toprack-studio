@@ -100,9 +100,9 @@ class DataCenterValueService:
         
         # Special handling for Space_X and Space_Y if they exist in specs
         if 'Space_X' in unique_units:
-            initial_values['Space_X'] = 3000  # Total available space in X dimension
+            initial_values['Space_X'] = 1000  # Total available space in X dimension
         if 'Space_Y' in unique_units:
-            initial_values['Space_Y'] = 2000  # Total available space in Y dimension
+            initial_values['Space_Y'] = 500  # Total available space in Y dimension - FIX: was incorrectly set to 5000
         
         # Determine initial values based on constraints
         for unit in unique_units:
@@ -179,8 +179,8 @@ class DataCenterValueService:
             
             # For Space_X and Space_Y, we subtract from the initial value
             if unit in ['Space_X', 'Space_Y']:
-                # Get the initial value
-                initial_value = 3000 if unit == 'Space_X' else 2000
+                # Get the initial value - FIX: Space_Y should be 500, not 5000
+                initial_value = 1000 if unit == 'Space_X' else 500
                 value_obj.value = initial_value - total
                 logger.info(f"Unit {unit}: {initial_value} - {total} = {value_obj.value} (was {old_value})")
             else:
@@ -201,7 +201,32 @@ class DataCenterSpecsService:
         
         # Get all specs
         all_specs = DataCenterSpecs.objects.all()
-        logger.debug(f"Found {len(all_specs)} specifications to validate")
+        logger.info(f"Found {len(all_specs)} specifications to validate")
+        
+        # Log all specs before validation
+        logger.info("=== ALL DATA CENTER SPECIFICATIONS ===")
+        for spec in all_specs:
+            constraint_type = []
+            if spec.below_amount == 1:
+                constraint_type.append(f"below {spec.amount}")
+            if spec.above_amount == 1:
+                constraint_type.append(f"above {spec.amount}")
+            if spec.minimize == 1:
+                constraint_type.append("minimize")
+            if spec.maximize == 1:
+                constraint_type.append("maximize")
+            if spec.unconstrained == 1:
+                constraint_type.append("unconstrained")
+            
+            logger.info(f"Spec: {spec.name}, Unit: {spec.unit}, Amount: {spec.amount}, Constraints: {', '.join(constraint_type)}")
+        logger.info("======================================")
+        
+        # Get all current values
+        all_values = {value.unit: value.value for value in DataCenterValue.objects.all()}
+        logger.info("=== CURRENT DATA CENTER VALUES ===")
+        for unit, value in all_values.items():
+            logger.info(f"Unit: {unit}, Current Value: {value}")
+        logger.info("=================================")
         
         # Track all violations to report them all
         violations = []
@@ -211,26 +236,21 @@ class DataCenterSpecsService:
             # Get current value for this unit
             try:
                 current_value = DataCenterValue.objects.get(unit=spec.unit).value
-                logger.info(f"Unit: {spec.unit}, Current Value: {current_value}, Spec Amount: {spec.amount}")
+                logger.info(f"Validating {spec.name}: Unit: {spec.unit}, Current Value: {current_value}, Spec Amount: {spec.amount}")
                 
-                # Log constraint types with more detail
+                # Build a description of the constraints for this spec
                 constraint_type = []
                 if spec.below_amount == 1:
-                    constraint_type.append("below or equal")
-                    logger.info(f"Constraint: Unit {spec.unit} should be BELOW OR EQUAL TO {spec.amount}")
+                    constraint_type.append(f"below {spec.amount}")
                 if spec.above_amount == 1:
-                    constraint_type.append("above")
-                    logger.info(f"Constraint: Unit {spec.unit} should be ABOVE {spec.amount}")
+                    constraint_type.append(f"above {spec.amount}")
                 if spec.minimize == 1:
                     constraint_type.append("minimize")
-                    logger.info(f"Constraint: Unit {spec.unit} should be MINIMIZED")
                 if spec.maximize == 1:
                     constraint_type.append("maximize")
-                    logger.info(f"Constraint: Unit {spec.unit} should be MAXIMIZED")
                 if spec.unconstrained == 1:
                     constraint_type.append("unconstrained")
-                    logger.info(f"Constraint: Unit {spec.unit} is UNCONSTRAINED")
-                
+                    
                 logger.debug(f"Unit {spec.unit} has constraints: {', '.join(constraint_type)}")
                 
             except DataCenterValue.DoesNotExist:

@@ -149,9 +149,9 @@ class Command(BaseCommand):
             
             # Special handling for Space_X and Space_Y if they exist in specs
             if 'Space_X' in unique_units:
-                initial_values['Space_X'] = 3000  # Total available space in X dimension
+                initial_values['Space_X'] = 1000  # Total available space in X dimension
             if 'Space_Y' in unique_units:
-                initial_values['Space_Y'] = 2000  # Total available space in Y dimension
+                initial_values['Space_Y'] = 500  # Total available space in Y dimension - FIX: was incorrectly set to 5000
             
             # Determine initial values based on constraints
             for unit in unique_units:
