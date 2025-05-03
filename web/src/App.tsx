@@ -16,7 +16,8 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { useQuery } from "@tanstack/react-query";
-import { DndContext } from "@dnd-kit/core";
+import { DndContext, DragOverlay } from "@dnd-kit/core";
+import ModuleCard from "./components/ModuleCard";
 
 function App() {
   const { data: loadedModules = [], isLoading: loading } = useQuery({
@@ -45,6 +46,8 @@ function App() {
       { start: [0, 45] as [number, number], end: [0, 0] as [number, number] },
     ],
   });
+
+  const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
 
   const handleModulePlaced = (moduleId: string, position: [number, number]) => {
     setPlacedModules((prev) => [
@@ -96,7 +99,18 @@ function App() {
   }
 
   return (
-    <DndContext>
+    <DndContext
+      onDragStart={(event) => {
+        // event.active.id is like 'module-<id>'
+        const id = String(event.active.id).replace(/^module-/, "");
+        setActiveModuleId(id);
+      }}
+      onDragEnd={() => {
+        setActiveModuleId(null);
+        // handle drop logic here if needed
+      }}
+      onDragCancel={() => setActiveModuleId(null)}
+    >
       <div className="flex flex-col min-h-screen bg-background text-foreground dark">
         <header className="w-full h-(--header-height) border-b flex items-center border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0">
           <div className="flex items-center gap-3 px-8 py-3">
@@ -110,7 +124,7 @@ function App() {
         </header>
         <main className="flex flex-1 h-[calc(100vh-var(--header-height)-var(--footer-height))]">
           <div className="flex-1 flex items-stretch">
-            <div className="flex-1 relative bg-gradient-to-br from-background via-muted to-background">
+            <div className="flex-1 bg-gradient-to-br from-background via-muted to-background">
               <RoomVisualization
                 roomDimensions={roomDimensions}
                 placedModules={placedModules}
@@ -119,6 +133,10 @@ function App() {
                 onModuleRotated={handleModuleRotated}
               />
             </div>
+            {/* <ModuleCard
+              module={loadedModules[0]}
+              onClick={() => handleModulePlaced(loadedModules[0].id, [0, 0])}
+            /> */}
             <aside className="w-80 max-w-xs border-l border-border bg-card/90 h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6">
               <div className="mb-6">
                 <h2 className="text-lg font-bold mb-4">Module Library</h2>
@@ -172,12 +190,29 @@ function App() {
                 <ModuleLibrary
                   modules={filteredModules}
                   onModulePlaced={handleModulePlaced}
+                  activeModuleId={activeModuleId}
                 />
               </ScrollArea>
             </aside>
           </div>
         </main>
       </div>
+      <DragOverlay>
+        {activeModuleId ? (
+          <div className="bg-black/30 rounded-lg p-2">
+            {(() => {
+              const module = loadedModules.find((m) => m.id === activeModuleId);
+              return module ? (
+                <ModuleCard
+                  module={module}
+                  draggable={false}
+                  highlight={true}
+                />
+              ) : null;
+            })()}
+          </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 }

@@ -7,19 +7,31 @@ import { CSS } from "@dnd-kit/utilities";
 interface ModuleCardProps {
   module: Module;
   onClick?: () => void;
+  draggable?: boolean;
+  isDragging?: boolean;
+  highlight?: boolean;
 }
 
-export default function ModuleCard({ module }: ModuleCardProps) {
-  const { setNodeRef, listeners, attributes, transform } = useDraggable({
-    id: `module-${module.id}`,
-  });
+export default function ModuleCard({
+  module,
+  onClick,
+  draggable = true,
+  isDragging = false,
+  highlight = false,
+}: ModuleCardProps) {
+  const dnd = useDraggable({ id: `module-${module.id}` });
+  const setNodeRef = draggable ? dnd.setNodeRef : undefined;
+  const listeners = draggable ? dnd.listeners : {};
+  const attributes = draggable ? dnd.attributes : {};
+  const transform = draggable ? dnd.transform : null;
 
   return (
     <Card
       className={cn(
         "flex items-center gap-4 p-4 bg-card border border-border shadow-sm transition-transform hover:scale-[1.02] hover:shadow-md cursor-grab",
         {
-          "bg-accent z-10": !!transform,
+          "bg-accent cursor-grabbing": highlight,
+          invisible: isDragging,
         }
       )}
       style={{
@@ -28,6 +40,7 @@ export default function ModuleCard({ module }: ModuleCardProps) {
       {...listeners}
       {...attributes}
       ref={setNodeRef}
+      onClick={onClick}
     >
       <div className="flex items-center justify-center w-12 h-12 rounded bg-primary text-primary-foreground text-lg font-bold">
         {module.icon || module.name.charAt(0)}

@@ -5,6 +5,7 @@ import type { Module } from "../../types";
 import PlacedModule from "./PlacedModule";
 import WallDimensions from "./WallDimensions";
 import "leaflet/dist/leaflet.css";
+import { useDroppable } from "@dnd-kit/core";
 
 interface RoomVisualizationProps {
   roomDimensions: {
@@ -50,6 +51,10 @@ export default function RoomVisualization({
   onModuleRemoved,
   onModuleRotated,
 }: RoomVisualizationProps) {
+  const { setNodeRef } = useDroppable({
+    id: "room",
+  });
+
   const mapRef = useRef<L.Map | null>(null);
 
   // Calculate bounds based on room dimensions
@@ -70,7 +75,7 @@ export default function RoomVisualization({
   });
 
   return (
-    <div className="absolute inset-0 h-full w-full bg-background">
+    <div className="h-full w-full bg-background" ref={setNodeRef}>
       <MapContainer
         center={[roomDimensions.height / 2, roomDimensions.width / 2]}
         zoom={1}
