@@ -14,17 +14,16 @@ from .services import (
 )
 import logging
 from django.db import models
-from backend.settings import DataCenterConstants
+from io import StringIO
+import sys
 
 logger = logging.getLogger('django')
 
 def custom_exception_handler(exc, context):
     from rest_framework.views import exception_handler
     
-    # Call REST framework's default exception handler first
     response = exception_handler(exc, context)
     
-    # Now add the HTTP status code to the response
     if response is not None:
         response.data = {
             'status': 'error',
@@ -85,7 +84,6 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(queryset, many=True)
         
-        # Get the data center for additional info
         data_center = None
         if data_center_id:
             try:
@@ -95,17 +93,15 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
         else:
             data_center = DataCenter.get_default()
             
-        # Add data center info to the response
         data_center_info = {
             "id": data_center.id,
             "name": data_center.name,
             "width": data_center.space_x,
             "height": data_center.space_y,
-            "x": 0,  # Default to origin
-            "y": 0   # Default to origin
+            "x": 0,
+            "y": 0
         }
 
-        # Try to get the first point for coordinates
         first_point = data_center.points.first()
         if first_point:
             data_center_info["x"] = first_point.x
@@ -133,7 +129,6 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """Create a new active module"""
         try:
-            # Extract x and y from request data
             x = request.data.get('x')
             y = request.data.get('y')
             
@@ -326,32 +321,151 @@ def recalculate_values(request):
 
 @api_view(['POST'])
 def create_data_center(request):
-    """API endpoint to create a new data center and initialize DataCenterValues"""
-    # Get the data center name from request or use default
-    name = request.data.get('name', 'Default Data Center')
-    
-    # Create a new data center with the provided name
-    from core.models import DataCenter  # Add local import to ensure it's available
-    
+    """API endpoint to create a new data center and initialize DataCenterValues with uploaded CSV files"""
     try:
-        # Create the data center with default dimensions
-        data_center = DataCenter.objects.create(
+        # Get parameters from request
+        name = request.data.get('name', 'Default Data Center')
+        clean_db = request.data.get('clean_db', 'false').lower() == 'true'
+        
+        # Get uploaded files
+        modules_file = request.FILES.get('modules_csv')
+        components_file = request.FILES.get('components_csv')
+        
+        # Capture command output
+        stdout = StringIO()
+        stderr = StringIO()
+        sys.stdout = stdout
+        sys.stderr = stderr
+        
+        # Import directly from memory
+        from core.models import Module, ModuleAttribute, DataCenterComponent, DataCenterComponentAttribute, DataCenter
+        from core.services import DataCenterValueService
+        import csv
+        
+        # Clean database if requested
+        if clean_db:
+            print("Cleaning database before import...")
+            ModuleAttribute.objects.all().delete()
+            Module.objects.all().delete()
+            DataCenterComponentAttribute.objects.all().delete()
+            DataCenterComponent.objects.all().delete()
+            DataCenterValue.objects.all().delete()
+        
+        # Process modules file if provided
+        if modules_file:
+            print(f"Processing uploaded modules file")
+            
+            # Read file content and detect delimiter
+            content = modules_file.read().decode('utf-8')
+            
+            # Detect delimiter by counting occurrences
+            delimiters = [',', ';', '\t', '|']
+            counts = {d: content.count(d) for d in delimiters}
+            delimiter = max(counts.items(), key=lambda x: x[1])[0]
+            print(f"Detected delimiter: '{delimiter}'")
+            
+            # Parse CSV with detected delimiter
+            reader = csv.DictReader(content.splitlines(), delimiter=delimiter)
+            
+            # Create modules and attributes
+            modules = {}
+            for row in reader:
+                module_name = row['Name']
+                
+                # Create module if it doesn't exist
+                if module_name not in modules:
+                    module, created = Module.objects.get_or_create(name=module_name)
+                    modules[module_name] = module
+                    
+                    if created:
+                        print(f"Created module: {module_name}")
+                
+                # Create module attribute
+                ModuleAttribute.objects.create(
+                    module=modules[module_name],
+                    unit=row['Unit'],
+                    amount=int(row['Amount']),
+                    is_input=int(row['Is_Input']) == 1,
+                    is_output=int(row['Is_Output']) == 1
+                )
+            
+            print(f"Imported {len(modules)} modules")
+        
+        # Process components file if provided
+        if components_file:
+            print(f"Processing uploaded components file")
+            
+            # Read file content and detect delimiter
+            content = components_file.read().decode('utf-8')
+            
+            # Detect delimiter by counting occurrences
+            delimiters = [',', ';', '\t', '|']
+            counts = {d: content.count(d) for d in delimiters}
+            delimiter = max(counts.items(), key=lambda x: x[1])[0]
+            print(f"Detected delimiter: '{delimiter}'")
+            
+            # Parse CSV with detected delimiter
+            reader = csv.DictReader(content.splitlines(), delimiter=delimiter)
+            
+            # Create components and attributes
+            components = {}
+            for row in reader:
+                component_name = row['Name']
+                
+                # Create component if it doesn't exist
+                if component_name not in components:
+                    component, created = DataCenterComponent.objects.get_or_create(name=component_name)
+                    components[component_name] = component
+                    
+                    if created:
+                        print(f"Created component: {component_name}")
+                
+                # Create component attribute
+                DataCenterComponentAttribute.objects.create(
+                    component=components[component_name],
+                    unit=row['Unit'],
+                    amount=int(row['Amount']),
+                    below_amount=int(row['Below_Amount']),
+                    above_amount=int(row['Above_Amount']),
+                    minimize=int(row['Minimize']),
+                    maximize=int(row['Maximize']),
+                    unconstrained=int(row['Unconstrained'])
+                )
+            
+            print(f"Imported {len(components)} components")
+        
+        # Initialize values
+        print("Initializing DataCenterValues...")
+        from backend.settings import DataCenterConstants
+        
+        # Get or create the data center with the specified name
+        data_center, created = DataCenter.objects.get_or_create(
             name=name,
-            space_x=DataCenterConstants.SPACE_X_INITIAL,
-            space_y=DataCenterConstants.SPACE_Y_INITIAL
+            defaults={
+                'space_x': DataCenterConstants.SPACE_X_INITIAL,
+                'space_y': DataCenterConstants.SPACE_Y_INITIAL
+            }
         )
         
-        # Create default rectangle points
-        points = [
-            Point.objects.get_or_create(x=0, y=0)[0],                                # Bottom-left
-            Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=0)[0],  # Bottom-right
-            Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=DataCenterConstants.SPACE_Y_INITIAL)[0],  # Top-right
-            Point.objects.get_or_create(x=0, y=DataCenterConstants.SPACE_Y_INITIAL)[0]   # Top-left
-        ]
-        data_center.points.add(*points)
+        if created:
+            from core.models import Point
+            # Create default rectangle points
+            points = [
+                Point.objects.get_or_create(x=0, y=0)[0],
+                Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=0)[0],
+                Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=DataCenterConstants.SPACE_Y_INITIAL)[0],
+                Point.objects.get_or_create(x=0, y=DataCenterConstants.SPACE_Y_INITIAL)[0]
+            ]
+            data_center.points.add(*points)
+            print(f"Created new data center: {name}")
         
         # Initialize values with the data center
         values = DataCenterValueService.initialize_values_from_components(data_center)
+        print(f"Initialized {len(values)} DataCenterValues for {data_center.name}")
+        
+        # Reset stdout/stderr
+        sys.stdout = sys.__stdout__
+        sys.stderr = sys.__stderr__
         
         # Serialize the data center to return it in the response
         serializer = DataCenterSerializer(data_center)
@@ -362,14 +476,25 @@ def create_data_center(request):
         return Response({
             "status": "success",
             "status_code": status.HTTP_201_CREATED,
-            "message": f"Data center '{name}' created successfully with {len(values)} initialized values",
+            "message": f"Data center '{name}' created successfully with imported data",
+            "command_output": stdout.getvalue(),
             "data": data_center_info
         }, status=status.HTTP_201_CREATED)
     except Exception as e:
+        import traceback
+        traceback_str = traceback.format_exc()
+        
+        # Reset stdout/stderr
+        if 'stdout' in locals() and 'stderr' in locals():
+            sys.stdout = sys.__stdout__
+            sys.stderr = sys.__stderr__
+        
         return Response({
             "status": "error",
             "status_code": status.HTTP_400_BAD_REQUEST,
-            "message": str(e)
+            "message": str(e),
+            "error_details": stderr.getvalue() if 'stderr' in locals() else "",
+            "traceback": traceback_str
         }, status=status.HTTP_400_BAD_REQUEST)
 
 class DataCenterViewSet(viewsets.ModelViewSet):
