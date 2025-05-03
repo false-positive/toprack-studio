@@ -1,21 +1,6 @@
 from django.db import models
 from backend.settings import DataCenterConstants
 
-class Module(models.Model):
-    name = models.CharField(max_length=255)
-    
-    def __str__(self):
-        return f"Module: {self.name}"
-
-class ModuleAttribute(models.Model):
-    module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='attributes')
-    is_input = models.BooleanField(default=False)
-    is_output = models.BooleanField(default=False)
-    unit = models.CharField(max_length=255)
-    amount = models.IntegerField()
-    
-    def __str__(self):
-        return f"{self.module.name} - {self.unit}: {self.amount}"
 
 class Point(models.Model):
     """
@@ -69,7 +54,6 @@ class DataCenter(models.Model):
         """Override save to ensure at least one point exists"""
         super().save(*args, **kwargs)
         
-        # Ensure at least the origin point exists
         if not self.points.exists():
             # Create a rectangle by default
             points = [
@@ -79,7 +63,24 @@ class DataCenter(models.Model):
                 Point.objects.get_or_create(x=0, y=self.space_y)[0]      # Top-left
             ]
             self.points.add(*points)
+            
+class Module(models.Model):
+    name = models.CharField(max_length=255)
+    data_center = models.ForeignKey(DataCenter, on_delete=models.CASCADE, related_name='modules', null=True, blank=True)
+    
+    def __str__(self):
+        return f"Module: {self.name}"
 
+class ModuleAttribute(models.Model):
+    module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='attributes')
+    is_input = models.BooleanField(default=False)
+    is_output = models.BooleanField(default=False)
+    unit = models.CharField(max_length=255)
+    amount = models.IntegerField()
+    
+    def __str__(self):
+        return f"{self.module.name} - {self.unit}: {self.amount}"
+    
 class DataCenterComponent(models.Model):
     name = models.CharField(max_length=255)
     data_center = models.ForeignKey(DataCenter, on_delete=models.CASCADE, 

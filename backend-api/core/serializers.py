@@ -10,23 +10,27 @@ class ModuleAttributeSerializer(serializers.ModelSerializer):
         fields = ['unit', 'amount', 'is_input', 'is_output']
 
 class ModuleSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Module model.
+    Includes all attributes of the module.
+    """
     attributes = serializers.SerializerMethodField()
-
+    data_center_name = serializers.SerializerMethodField()
+    
     class Meta:
         model = Module
-        fields = ['id', 'name', 'attributes']
+        fields = ['id', 'name', 'attributes', 'data_center', 'data_center_name']
     
     def get_attributes(self, obj):
-        """Convert attributes from list of objects to dictionary with unit as key"""
-        attributes = ModuleAttribute.objects.filter(module=obj)
-        result = {}
-        for attr in attributes:
-            result[attr.unit] = {
-                'amount': attr.amount,
-                'is_input': attr.is_input,
-                'is_output': attr.is_output
-            }
-        return result
+        """Get all attributes for this module"""
+        attributes = obj.attributes.all()
+        return ModuleAttributeSerializer(attributes, many=True).data
+    
+    def get_data_center_name(self, obj):
+        """Get the name of the data center"""
+        if obj.data_center:
+            return obj.data_center.name
+        return None
 
 class DataCenterSerializer(serializers.ModelSerializer):
     """
@@ -43,7 +47,7 @@ class DataCenterSerializer(serializers.ModelSerializer):
     
     def get_points(self, obj):
         """Get all points associated with this data center"""
-        points = obj.points.all().order_by('id')  # Order by ID to maintain consistent order
+        points = obj.points.all().order_by('id')
         return PointSerializer(points, many=True).data
     
     def get_width(self, obj):
@@ -58,7 +62,6 @@ class DataCenterSerializer(serializers.ModelSerializer):
         """Create a new data center with default rectangular shape"""
         data_center = DataCenter.objects.create(**validated_data)
         
-        # Points will be added automatically in the save method
         return data_center
 
 class PointSerializer(serializers.ModelSerializer):
@@ -159,14 +162,11 @@ class ActiveModuleSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Create a new active module with a point"""
-        # Extract x and y from validated data
         x = validated_data.pop('x')
         y = validated_data.pop('y')
         
-        # Create or get the point
         point, created = Point.objects.get_or_create(x=x, y=y)
         
-        # Create the active module with the point
         active_module = ActiveModule.objects.create(
             point=point,
             **validated_data
@@ -176,14 +176,11 @@ class ActiveModuleSerializer(serializers.ModelSerializer):
     
     def update(self, instance, validated_data):
         """Update only the point of an active module"""
-        # Extract x and y from validated data
         x = validated_data.pop('x')
         y = validated_data.pop('y')
         
-        # Create or get the point
         point, created = Point.objects.get_or_create(x=x, y=y)
         
-        # Update only the point
         instance.point = point
         instance.save()
         
@@ -195,34 +192,27 @@ class DataCenterComponentAttributeSerializer(serializers.ModelSerializer):
         fields = ['unit', 'amount', 'below_amount', 'above_amount', 'minimize', 'maximize', 'unconstrained']
 
 class DataCenterComponentSerializer(serializers.ModelSerializer):
+    """
+    Serializer for DataCenterComponent model.
+    Includes all attributes of the component.
+    """
     attributes = serializers.SerializerMethodField()
-
+    data_center_name = serializers.SerializerMethodField()
+    
     class Meta:
         model = DataCenterComponent
-        fields = ['id', 'name', 'attributes']
+        fields = ['id', 'name', 'attributes', 'data_center', 'data_center_name']
     
     def get_attributes(self, obj):
-        """Convert attributes from list of objects to dictionary with unit as key"""
-        attributes = DataCenterComponentAttribute.objects.filter(component=obj)
-        result = {}
-        for attr in attributes:
-            constraint_type = []
-            if attr.below_amount == 1:
-                constraint_type.append(f"below {attr.amount}")
-            if attr.above_amount == 1:
-                constraint_type.append(f"above {attr.amount}")
-            if attr.minimize == 1:
-                constraint_type.append("minimize")
-            if attr.maximize == 1:
-                constraint_type.append("maximize")
-            if attr.unconstrained == 1:
-                constraint_type.append("unconstrained")
-                
-            result[attr.unit] = {
-                'amount': attr.amount,
-                'constraints': constraint_type
-            }
-        return result
+        """Get all attributes for this component"""
+        attributes = obj.attributes.all()
+        return DataCenterComponentAttributeSerializer(attributes, many=True).data
+    
+    def get_data_center_name(self, obj):
+        """Get the name of the data center"""
+        if obj.data_center:
+            return obj.data_center.name
+        return None
 
 class DataCenterPointsSerializer(serializers.ModelSerializer):
     class Meta:

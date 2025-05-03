@@ -2,13 +2,13 @@ import random
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
-from .models import Module, ActiveModule, DataCenterValue, Point, DataCenterComponent, DataCenter
+from .models import Module, ActiveModule, DataCenterValue, Point, DataCenterComponent, DataCenter, ModuleAttribute
 from .serializers import (
     ModuleSerializer, ActiveModuleSerializer, 
     DataCenterComponentSerializer, DataCenterSerializer
 )
 from .services import (
-    ActiveModuleService, ModuleCalculationService, 
+    ActiveModuleService, 
     DataCenterValueService, DataCenterComponentService, 
     ModuleService
 )
@@ -17,14 +17,16 @@ from django.db import models
 from io import StringIO
 import sys
 from django.http import HttpResponse
-import uuid
 
 logger = logging.getLogger('django')
 
-# Single warmth image storage in memory
 warmth_image = {
     'content': None,
     'content_type': None
+}
+
+display_control = {
+    'current_display': 'website'
 }
 
 def custom_exception_handler(exc, context):
@@ -47,7 +49,18 @@ class ModuleViewSet(viewsets.ModelViewSet):
     serializer_class = ModuleSerializer
     
     def get_queryset(self):
-        return ModuleService.get_all_modules()
+        queryset = ModuleService.get_all_modules()
+        
+        # Filter by data_center if provided
+        data_center_id = self.request.query_params.get('data_center', None)
+        if data_center_id:
+            try:
+                data_center = DataCenter.objects.get(id=data_center_id)
+                queryset = queryset.filter(data_center=data_center)
+            except DataCenter.DoesNotExist:
+                pass
+        
+        return queryset
     
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -150,11 +163,14 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
             active_module = ActiveModuleService.create_active_module(data)
             
             data_center = None
-            if active_module.data_center_component and active_module.data_center_component.data_center:
+            if active_module.data_center:
+                data_center = active_module.data_center
+            elif active_module.data_center_component and active_module.data_center_component.data_center:
                 data_center = active_module.data_center_component.data_center
             else:
                 data_center = DataCenter.get_default()
             
+            logger.info(f"Recalculating values after creating active module {active_module.id}")
             DataCenterValueService.recalculate_all_values(data_center)
             
             serializer = self.get_serializer(active_module)
@@ -167,6 +183,7 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED, headers=headers)
         except Exception as e:
+            logger.error(f"Error creating active module: {str(e)}", exc_info=True)
             return Response({
                 "status": "error",
                 "status_code": status.HTTP_400_BAD_REQUEST,
@@ -239,18 +256,37 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 def calculate_resources(request):
     """API endpoint to calculate resource usage and validate"""
-    data_center = DataCenter.get_default()
+    data_center_id = request.query_params.get('data_center', None)
     
-    DataCenterValueService.recalculate_all_values(data_center)
+    if not data_center_id:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "message": "data_center parameter is required"
+        }, status=status.HTTP_400_BAD_REQUEST)
     
-    # Then get active modules and calculate resources
-    active_modules = ActiveModuleService.get_all_active_modules(data_center)
-    results = ModuleCalculationService.calculate_resource_usage(active_modules, data_center)
+    try:
+        data_center = DataCenter.objects.get(id=data_center_id)
+    except DataCenter.DoesNotExist:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "message": f"Data center with ID {data_center_id} not found"
+        }, status=status.HTTP_404_NOT_FOUND)
     
-    # Check validation status
+    calculated_values = DataCenterValueService.force_recalculate_values(data_center)
+    
+    results = calculated_values['global_values']
+    
+
+    space_x_used = results.get('Space_X', 0)
+    space_y_used = results.get('Space_Y', 0)
+    
+    results['Space_X_Available'] = data_center.space_x - space_x_used
+    results['Space_Y_Available'] = data_center.space_y - space_y_used
+    
     validation_result, violations = DataCenterComponentService.validate_component_values(None, data_center)
     
-    # Add data center info to the response
     data_center_info = {
         "id": data_center.id,
         "name": data_center.name,
@@ -259,7 +295,6 @@ def calculate_resources(request):
         "points": []
     }
 
-    # Get all points for the data center
     points = data_center.points.all().order_by('id')
     data_center_info["points"] = [{"x": point.x, "y": point.y} for point in points]
     
@@ -276,15 +311,28 @@ def calculate_resources(request):
 @api_view(['POST'])
 def recalculate_values(request):
     """API endpoint to recalculate all DataCenterValues and validate"""
-    data_center = DataCenter.get_default()
+    data_center_id = request.data.get('data_center', None)
     
-    # Recalculate values
-    DataCenterValueService.recalculate_all_values(data_center)
+    if not data_center_id:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "message": "data_center parameter is required"
+        }, status=status.HTTP_400_BAD_REQUEST)
     
-    # Validate after recalculation
+    try:
+        data_center = DataCenter.objects.get(id=data_center_id)
+    except DataCenter.DoesNotExist:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "message": f"Data center with ID {data_center_id} not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    calculated_values = DataCenterValueService.force_recalculate_values(data_center)
+    
     validation_result, violations = DataCenterComponentService.validate_component_values(None, data_center)
     
-    # Add data center info to the response
     data_center_info = {
         "id": data_center.id,
         "name": data_center.name,
@@ -293,15 +341,14 @@ def recalculate_values(request):
         "points": []
     }
 
-    # Get all points for the data center
     points = data_center.points.all().order_by('id')
     data_center_info["points"] = [{"x": point.x, "y": point.y} for point in points]
     
-    # Return a more structured response
     return Response({
         "status": "success",
         "status_code": status.HTTP_200_OK,
         "message": "Values recalculated successfully",
+        "data": calculated_values['global_values'],
         "data_center": data_center_info,
         "validation_passed": validation_result,
         "violations": violations if not validation_result else []
@@ -311,11 +358,9 @@ def recalculate_values(request):
 def create_data_center(request):
     """API endpoint to create a new data center and initialize DataCenterValues with uploaded CSV files"""
     try:
-        # Get parameters from request
         name = request.data.get('name', 'Default Data Center')
         clean_db = request.data.get('clean_db', 'false').lower() == 'true'
         
-        # Check if a data center with this name already exists
         if DataCenter.objects.filter(name=name).exists():
             return Response({
                 "status": "error",
@@ -323,64 +368,99 @@ def create_data_center(request):
                 "message": f"A data center with the name '{name}' already exists"
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Get uploaded files
+        from backend.settings import DataCenterConstants
+        
+        data_center, created = DataCenter.objects.get_or_create(
+            name=name,
+            defaults={
+                'space_x': DataCenterConstants.SPACE_X_INITIAL,
+                'space_y': DataCenterConstants.SPACE_Y_INITIAL
+            }
+        )
+        
+        if created:
+            from core.models import Point
+            points = [
+                Point.objects.get_or_create(x=0, y=0)[0],
+                Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=0)[0],
+                Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=DataCenterConstants.SPACE_Y_INITIAL)[0],
+                Point.objects.get_or_create(x=0, y=DataCenterConstants.SPACE_Y_INITIAL)[0]
+            ]
+            data_center.points.add(*points)
+            print(f"Created new data center: {name}")
+        
         modules_file = request.FILES.get('modules_csv')
         components_file = request.FILES.get('components_csv')
         
-        # Capture command output
+        if not modules_file or not components_file:
+            logger.info("No CSV files uploaded, using default files from the project")
+            
+            import os
+            from django.conf import settings
+            
+            base_dir = settings.BASE_DIR
+            
+            default_modules_path = os.path.join(base_dir, 'Modules.csv')
+            default_components_path = os.path.join(base_dir, 'Data_Center_Spec.csv')
+            
+            logger.info(f"Using default modules file: {default_modules_path}")
+            logger.info(f"Using default components file: {default_components_path}")
+            
+            if not os.path.exists(default_modules_path):
+                return Response({
+                    "status": "error",
+                    "status_code": status.HTTP_400_BAD_REQUEST,
+                    "message": f"Default modules file not found at {default_modules_path}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+            if not os.path.exists(default_components_path):
+                return Response({
+                    "status": "error",
+                    "status_code": status.HTTP_400_BAD_REQUEST,
+                    "message": f"Default components file not found at {default_components_path}"
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
         stdout = StringIO()
         stderr = StringIO()
         sys.stdout = stdout
         sys.stderr = stderr
         
-        # Import directly from memory - remove DataCenter from this import
-        from core.models import Module, ModuleAttribute, DataCenterComponent, DataCenterComponentAttribute, ActiveModule
+        from core.models import DataCenterComponent, DataCenterComponentAttribute, ActiveModule
         from core.services import DataCenterValueService
         import csv
         
-        # Clean database if requested
         if clean_db:
             print("Cleaning database before import...")
-            # Delete all related records
             ActiveModule.objects.all().delete()
-            ModuleAttribute.objects.all().delete()
-            Module.objects.all().delete()
             DataCenterComponentAttribute.objects.all().delete()
             DataCenterComponent.objects.all().delete()
             DataCenterValue.objects.all().delete()
-            # Don't delete DataCenter objects to preserve existing data centers
-            print("Database cleaned successfully")
+            print("Database cleaned successfully (components only)")
         
-        # Process modules file if provided
+        print("Processing modules file...")
+        
         if modules_file:
-            print(f"Processing uploaded modules file")
-            
-            # Read file content and detect delimiter
             content = modules_file.read().decode('utf-8')
             
-            # Detect delimiter by counting occurrences
             delimiters = [',', ';', '\t', '|']
             counts = {d: content.count(d) for d in delimiters}
             delimiter = max(counts.items(), key=lambda x: x[1])[0]
             print(f"Detected delimiter: '{delimiter}'")
             
-            # Parse CSV with detected delimiter
             reader = csv.DictReader(content.splitlines(), delimiter=delimiter)
             
-            # Create modules and attributes
             modules = {}
             for row in reader:
                 module_name = row['Name']
                 
-                # Create module if it doesn't exist
                 if module_name not in modules:
-                    module, created = Module.objects.get_or_create(name=module_name)
+                    module = Module.objects.create(
+                        name=module_name,
+                        data_center=data_center
+                    )
                     modules[module_name] = module
-                    
-                    if created:
-                        print(f"Created module: {module_name}")
+                    print(f"Created module: {module_name} for data center: {data_center.name}")
                 
-                # Create module attribute
                 ModuleAttribute.objects.create(
                     module=modules[module_name],
                     unit=row['Unit'],
@@ -390,37 +470,64 @@ def create_data_center(request):
                 )
             
             print(f"Imported {len(modules)} modules")
+        else:
+            with open(default_modules_path, 'r') as f:
+                first_line = f.readline()
+                delimiters = [',', ';', '\t', '|']
+                counts = {d: first_line.count(d) for d in delimiters}
+                delimiter = max(counts.items(), key=lambda x: x[1])[0]
+                print(f"Detected delimiter: '{delimiter}'")
+                
+                f.seek(0)
+                
+                reader = csv.DictReader(f, delimiter=delimiter)
+                
+                modules = {}
+                for row in reader:
+                    module_name = row['Name']
+                    
+                    if module_name not in modules:
+                        module = Module.objects.create(
+                            name=module_name,
+                            data_center=data_center
+                        )
+                        modules[module_name] = module
+                        print(f"Created module: {module_name} for data center: {data_center.name}")
+                    
+                    ModuleAttribute.objects.create(
+                        module=modules[module_name],
+                        unit=row['Unit'],
+                        amount=int(row['Amount']),
+                        is_input=int(row['Is_Input']) == 1,
+                        is_output=int(row['Is_Output']) == 1
+                    )
+                
+                print(f"Imported {len(modules)} modules from default file")
         
-        # Process components file if provided
+        print("Processing components file...")
+        
         if components_file:
-            print(f"Processing uploaded components file")
-            
-            # Read file content and detect delimiter
             content = components_file.read().decode('utf-8')
             
-            # Detect delimiter by counting occurrences
             delimiters = [',', ';', '\t', '|']
             counts = {d: content.count(d) for d in delimiters}
             delimiter = max(counts.items(), key=lambda x: x[1])[0]
             print(f"Detected delimiter: '{delimiter}'")
             
-            # Parse CSV with detected delimiter
             reader = csv.DictReader(content.splitlines(), delimiter=delimiter)
             
-            # Create components and attributes
             components = {}
             for row in reader:
                 component_name = row['Name']
                 
-                # Create component if it doesn't exist
                 if component_name not in components:
-                    component, created = DataCenterComponent.objects.get_or_create(name=component_name)
+                    component = DataCenterComponent.objects.create(
+                        name=component_name,
+                        data_center=data_center
+                    )
                     components[component_name] = component
-                    
-                    if created:
-                        print(f"Created component: {component_name}")
+                    print(f"Created component: {component_name} for data center: {data_center.name}")
                 
-                # Create component attribute
                 DataCenterComponentAttribute.objects.create(
                     component=components[component_name],
                     unit=row['Unit'],
@@ -433,44 +540,50 @@ def create_data_center(request):
                 )
             
             print(f"Imported {len(components)} components")
+        else:
+            with open(default_components_path, 'r') as f:
+                first_line = f.readline()
+                delimiters = [',', ';', '\t', '|']
+                counts = {d: first_line.count(d) for d in delimiters}
+                delimiter = max(counts.items(), key=lambda x: x[1])[0]
+                print(f"Detected delimiter: '{delimiter}'")
+                
+                f.seek(0)
+                
+                reader = csv.DictReader(f, delimiter=delimiter)
+                
+                components = {}
+                for row in reader:
+                    component_name = row['Name']
+                    
+                    if component_name not in components:
+                        component = DataCenterComponent.objects.create(
+                            name=component_name,
+                            data_center=data_center
+                        )
+                        components[component_name] = component
+                        print(f"Created component: {component_name} for data center: {data_center.name}")
+                    
+                    DataCenterComponentAttribute.objects.create(
+                        component=components[component_name],
+                        unit=row['Unit'],
+                        amount=int(row['Amount']),
+                        below_amount=int(row['Below_Amount']),
+                        above_amount=int(row['Above_Amount']),
+                        minimize=int(row['Minimize']),
+                        maximize=int(row['Maximize']),
+                        unconstrained=int(row['Unconstrained'])
+                    )
+                
+                print(f"Imported {len(components)} components from default file")
         
-        # Initialize values
-        print("Initializing DataCenterValues...")
-        from backend.settings import DataCenterConstants
-        
-        # Get or create the data center with the specified name
-        data_center, created = DataCenter.objects.get_or_create(
-            name=name,
-            defaults={
-                'space_x': DataCenterConstants.SPACE_X_INITIAL,
-                'space_y': DataCenterConstants.SPACE_Y_INITIAL
-            }
-        )
-        
-        if created:
-            from core.models import Point
-            # Create default rectangle points
-            points = [
-                Point.objects.get_or_create(x=0, y=0)[0],
-                Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=0)[0],
-                Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=DataCenterConstants.SPACE_Y_INITIAL)[0],
-                Point.objects.get_or_create(x=0, y=DataCenterConstants.SPACE_Y_INITIAL)[0]
-            ]
-            data_center.points.add(*points)
-            print(f"Created new data center: {name}")
-        
-        # Initialize values with the data center
         values = DataCenterValueService.initialize_values_from_components(data_center)
-        print(f"Initialized {len(values)} DataCenterValues for {data_center.name}")
-        
-        # Reset stdout/stderr
+
         sys.stdout = sys.__stdout__
         sys.stderr = sys.__stderr__
         
-        # Serialize the data center to return it in the response
         serializer = DataCenterSerializer(data_center)
         
-        # Add data center info to the response
         data_center_info = serializer.data
         
         return Response({
@@ -484,7 +597,6 @@ def create_data_center(request):
         import traceback
         traceback_str = traceback.format_exc()
         
-        # Reset stdout/stderr
         if 'stdout' in locals() and 'stderr' in locals():
             sys.stdout = sys.__stdout__
             sys.stderr = sys.__stderr__
@@ -538,10 +650,8 @@ class DataCenterViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Clear existing points
             data_center.points.clear()
             
-            # Add new points
             for point_data in points_data:
                 x = point_data.get('x')
                 y = point_data.get('y')
@@ -556,7 +666,6 @@ class DataCenterViewSet(viewsets.ModelViewSet):
                 point, created = Point.objects.get_or_create(x=x, y=y)
                 data_center.points.add(point)
             
-            # Re-fetch the data center to get updated points
             data_center = DataCenter.objects.get(pk=data_center.pk)
             serializer = self.get_serializer(data_center)
             
@@ -577,13 +686,26 @@ class DataCenterComponentViewSet(viewsets.ModelViewSet):
     queryset = DataCenterComponent.objects.all()
     serializer_class = DataCenterComponentSerializer
     
+    def get_queryset(self):
+        queryset = DataCenterComponent.objects.all()
+        
+        data_center_id = self.request.query_params.get('data_center', None)
+        if data_center_id:
+            try:
+                data_center = DataCenter.objects.get(id=data_center_id)
+                queryset = queryset.filter(data_center=data_center)
+            except DataCenter.DoesNotExist:
+                pass
+        
+        return queryset
+    
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
         serializer = self.get_serializer(queryset, many=True)
         return Response({
             'status': 'success',
             'status_code': status.HTTP_200_OK,
-            'message': 'Components retrieved successfully',
+            'message': 'Data center components retrieved successfully',
             'data': serializer.data
         })
     
@@ -600,9 +722,24 @@ class DataCenterComponentViewSet(viewsets.ModelViewSet):
 @api_view(['GET', 'POST'])
 def validate_component_values(request, component_id=None):
     """API endpoint to validate DataCenterValues against component specifications"""
-    data_center = DataCenter.get_default()
+    data_center_id = request.query_params.get('data_center') or request.data.get('data_center')
     
-    # Get the component if specified
+    if not data_center_id:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "message": "data_center parameter is required"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        data_center = DataCenter.objects.get(id=data_center_id)
+    except DataCenter.DoesNotExist:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "message": f"Data center with ID {data_center_id} not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+    
     component = None
     if component_id:
         try:
@@ -614,27 +751,51 @@ def validate_component_values(request, component_id=None):
                 "message": f"Component with ID {component_id} not found"
             }, status=status.HTTP_404_NOT_FOUND)
     
-    # Validate component values
-    validation_result, violations = DataCenterComponentService.validate_component_values(component, data_center)
+    validation_result, violations = DataCenterComponentService.validate_component_values(component, data_center)  # Removed recalculation step
     
-    # Get all components for the response
     if component:
         components = [component]
     else:
-        components = DataCenterComponent.objects.filter(data_center=data_center)
+        component_ids = DataCenterValue.objects.filter(
+            data_center=data_center
+        ).exclude(
+            component=None
+        ).values_list('component_id', flat=True).distinct()
+        
+        components = DataCenterComponent.objects.filter(id__in=component_ids)
+        
+        if not components.exists():
+            components = DataCenterComponent.objects.filter(data_center=data_center)
     
-    # Serialize components
     component_serializer = DataCenterComponentSerializer(components, many=True)
     
-    # Get current values for the response
+    violation_set = set()
+    for v in violations:
+        parts = v.split(':')
+        if len(parts) >= 2:
+            component_name = parts[0].replace('Component ', '')
+            unit_parts = parts[1].split(' value')
+            if len(unit_parts) >= 1:
+                unit = unit_parts[0].strip()
+                violation_set.add((component_name, unit))
+    
     current_values = {}
     for value in DataCenterValue.objects.filter(data_center=data_center):
         component_name = value.component.name if value.component else "Global"
         if component_name not in current_values:
             current_values[component_name] = {}
-        current_values[component_name][value.unit] = value.value
+        
+        is_violating = False
+        for violation_comp, violation_unit in violation_set:
+            if component_name in violation_comp and value.unit == violation_unit:
+                is_violating = True
+                break
+        
+        current_values[component_name][value.unit] = {
+            "value": value.value,
+            "violates_constraint": is_violating
+        }
     
-    # Add data center info to the response
     data_center_info = {
         "id": data_center.id,
         "name": data_center.name,
@@ -643,11 +804,9 @@ def validate_component_values(request, component_id=None):
         "points": []
     }
 
-    # Get all points for the data center
     points = data_center.points.all().order_by('id')
     data_center_info["points"] = [{"x": point.x, "y": point.y} for point in points]
     
-    # Return response
     if validation_result:
         return Response({
             "status": "success",
@@ -655,18 +814,21 @@ def validate_component_values(request, component_id=None):
             "message": "All specifications validated successfully",
             "components": component_serializer.data,
             "current_values": current_values,
-            "data_center": data_center_info
+            "data_center": data_center_info,
+            "validation_passed": True,
+            "violations": []
         })
     else:
         return Response({
             "status": "error",
-            "status_code": status.HTTP_400_BAD_REQUEST,
+            "status_code": status.HTTP_200_OK,
             "message": "Some specifications are not met",
             "components": component_serializer.data,
             "current_values": current_values,
             "violations": violations,
-            "data_center": data_center_info
-        }, status=status.HTTP_400_BAD_REQUEST)
+            "data_center": data_center_info,
+            "validation_passed": False
+        })
 
 @api_view(['POST'])
 def upload_warmth_image(request):
@@ -680,7 +842,6 @@ def upload_warmth_image(request):
     
     image_file = request.FILES['image']
     
-    # Store the image content in memory
     warmth_image['content'] = image_file.read()
     warmth_image['content_type'] = image_file.content_type
     
@@ -709,13 +870,11 @@ def get_warmth_image(request):
 def initialize_values_from_components(request):
     """API endpoint to initialize DataCenterValues from existing components"""
     try:
-        # Generate a random name if not provided
         data_center_name = request.data.get('name')
         if not data_center_name:
             random_suffix = ''.join([str(random.randint(0, 9)) for _ in range(3)])
             data_center_name = f"DataCenter{random_suffix}"
         
-        # Check if a data center with this name already exists
         if DataCenter.objects.filter(name=data_center_name).exists():
             return Response({
                 "status": "error",
@@ -723,7 +882,6 @@ def initialize_values_from_components(request):
                 "message": f"A data center with the name '{data_center_name}' already exists"
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Get or create the data center with the specified name
         from backend.settings import DataCenterConstants
         
         data_center, created = DataCenter.objects.get_or_create(
@@ -735,7 +893,6 @@ def initialize_values_from_components(request):
         )
         
         if created:
-            # Create default rectangle points
             points = [
                 Point.objects.get_or_create(x=0, y=0)[0],
                 Point.objects.get_or_create(x=DataCenterConstants.SPACE_X_INITIAL, y=0)[0],
@@ -744,11 +901,9 @@ def initialize_values_from_components(request):
             ]
             data_center.points.add(*points)
         
-        # Initialize values with the data center
         from core.services import DataCenterValueService
         values = DataCenterValueService.initialize_values_from_components(data_center)
         
-        # Serialize the data center to return it in the response
         serializer = DataCenterSerializer(data_center)
         
         return Response({
@@ -764,3 +919,81 @@ def initialize_values_from_components(request):
             "status_code": status.HTTP_400_BAD_REQUEST,
             "message": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def debug_active_modules(request):
+    """Debug endpoint to list all active modules with their details"""
+    active_modules = ActiveModule.objects.all().select_related(
+        'module', 'data_center_component', 'data_center', 'point'
+    )
+    
+    data = []
+    for am in active_modules:
+        attributes = []
+        if am.module:
+            for attr in ModuleAttribute.objects.filter(module=am.module):
+                attributes.append({
+                    'unit': attr.unit,
+                    'amount': attr.amount,
+                    'is_input': attr.is_input,
+                    'is_output': attr.is_output
+                })
+        
+        data.append({
+            'id': am.id,
+            'module': {
+                'id': am.module.id if am.module else None,
+                'name': am.module.name if am.module else None,
+                'attributes': attributes
+            },
+            'component': {
+                'id': am.data_center_component.id if am.data_center_component else None,
+                'name': am.data_center_component.name if am.data_center_component else None
+            },
+            'data_center': {
+                'id': am.data_center.id if am.data_center else None,
+                'name': am.data_center.name if am.data_center else None
+            },
+            'position': {
+                'x': am.point.x if am.point else None,
+                'y': am.point.y if am.point else None
+            }
+        })
+    
+    return Response({
+        'status': 'success',
+        'status_code': status.HTTP_200_OK,
+        'message': 'Active modules retrieved successfully',
+        'count': len(data),
+        'data': data
+    })
+
+@api_view(['GET'])
+def toggle_display_control(request):
+    """API endpoint to toggle who should be showing info (VR or website)"""
+    # Toggle the current display
+    if display_control['current_display'] == 'website':
+        display_control['current_display'] = 'vr'
+    else:
+        display_control['current_display'] = 'website'
+    
+    return Response({
+        'status': 'success',
+        'status_code': status.HTTP_200_OK,
+        'message': f"Display control switched to {display_control['current_display']}",
+        'data': {
+            'current_display': display_control['current_display']
+        }
+    })
+
+@api_view(['GET'])
+def get_display_control(request):
+    """API endpoint to check who's currently showing info (VR or website)"""
+    return Response({
+        'status': 'success',
+        'status_code': status.HTTP_200_OK,
+        'message': f"Current display is {display_control['current_display']}",
+        'data': {
+            'current_display': display_control['current_display']
+        }
+    })
