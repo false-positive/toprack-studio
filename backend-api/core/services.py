@@ -1,4 +1,9 @@
-from .models import Module, ActiveModule
+from .models import Module, ActiveModule, DataCenterSpecs, DataCenterValue
+from django.db.models import Sum
+from django.db import transaction
+import logging
+
+logger = logging.getLogger('django')
 
 class ModuleService:
     @staticmethod
@@ -29,11 +34,254 @@ class ActiveModuleService:
             return None
     
     @staticmethod
+    @transaction.atomic
     def create_active_module(data):
-        """Create a new active module"""
-        module_id = data.pop('module').id if isinstance(data.get('module'), Module) else data.pop('module')
-        module = Module.objects.get(id=module_id)
-        return ActiveModule.objects.create(module=module, **data)
+        """
+        Create a new active module and recalculate all DataCenterValues
+        """
+        try:
+            module_id = data.pop('module').id if isinstance(data.get('module'), Module) else data.pop('module')
+            module = Module.objects.get(id=module_id)
+            
+            for field in Module._meta.fields:
+                logger.info(f"Module {field.name}: {getattr(module, field.name)}")
+            
+            # Create the active module in a transaction
+            active_module = ActiveModule.objects.create(module=module, **data)
+            
+            # Recalculate all data center values
+            DataCenterValueService.recalculate_all_values()
+            
+            validation_result = DataCenterSpecsService.validate_current_values()
+            
+            if not validation_result:
+                for value in DataCenterValue.objects.all():
+                    logger.error(f"Current value for {value.unit}: {value.value}")
+                
+                # Log all specs for comparison
+                logger.error("Data center specifications:")
+                for spec in DataCenterSpecs.objects.all():
+                    constraint_desc = []
+                    if spec.below_amount == 1:
+                        constraint_desc.append(f"below {spec.amount}")
+                    if spec.above_amount == 1:
+                        constraint_desc.append(f"above {spec.amount}")
+                    if spec.minimize == 1:
+                        constraint_desc.append("minimize")
+                    if spec.maximize == 1:
+                        constraint_desc.append("maximize")
+                    if spec.unconstrained == 1:
+                        constraint_desc.append("unconstrained")
+                    
+                    logger.error(f"Spec for {spec.unit}: should be {', '.join(constraint_desc)}")
+                
+                transaction.set_rollback(True)
+                raise ValueError("Adding this module would violate data center specifications")
+            
+            return active_module
+        except Module.DoesNotExist:
+            logger.error(f"Module with ID {module_id} does not exist")
+            transaction.set_rollback(True)
+            raise ValueError(f"Module with ID {module_id} does not exist")
+        except Exception as e:
+            logger.error(f"Error in create_active_module: {str(e)}", exc_info=True)
+            transaction.set_rollback(True)
+            raise
+    
+    @staticmethod
+    @transaction.atomic
+    def delete_active_module(active_module_id):
+        """Delete an active module and recalculate values"""
+        try:
+            active_module = ActiveModule.objects.get(id=active_module_id)
+            logger.info(f"Deleting active module ID={active_module_id}, Module={active_module.module.name}, Unit={active_module.module.unit}")
+            
+            active_module.delete()
+            
+            # Recalculate all data center values
+            logger.info("Recalculating data center values after deletion")
+            DataCenterValueService.recalculate_all_values()
+            
+            # Validate against specs (optional for deletion, but might be needed in some cases)
+            if not DataCenterSpecsService.validate_current_values():
+                logger.error("Validation failed after deletion, rolling back transaction")
+                transaction.set_rollback(True)
+                raise ValueError("Removing this module would violate data center specifications")
+                
+            return True
+        except ActiveModule.DoesNotExist:
+            return False
+        except ValueError as e:
+            # Handle the validation error
+            return False
+
+class DataCenterValueService:
+    @staticmethod
+    def get_or_create_value(unit):
+        """Get or create a DataCenterValue for a specific unit"""
+        value, created = DataCenterValue.objects.get_or_create(unit=unit, defaults={'value': 0})
+        return value
+    
+    @staticmethod
+    def initialize_values_from_specs():
+        """
+        Initialize DataCenterValue objects from unique units in DataCenterSpecs
+        Sets Space_X to 3000 and Space_Y to 2000, all others to 0
+        """
+        # Get unique units from DataCenterSpecs
+        unique_units = DataCenterSpecs.objects.values_list('unit', flat=True).distinct()
+        logger.info(f"Found {len(unique_units)} unique units in specs")
+        
+        # Create or update DataCenterValue for each unit
+        for unit in unique_units:
+            default_value = 0
+            if unit == 'Space_X':
+                default_value = 3000
+            elif unit == 'Space_Y':
+                default_value = 2000
+                
+            value, created = DataCenterValue.objects.get_or_create(
+                unit=unit,
+                defaults={'value': default_value}
+            )
+            
+            if not created:
+                # Update existing value if it's Space_X or Space_Y
+                if unit == 'Space_X':
+                    value.value = 3000
+                    value.save()
+                elif unit == 'Space_Y':
+                    value.value = 2000
+                    value.save()
+                    
+            action = "Created" if created else "Updated"
+            logger.info(f"{action} DataCenterValue for {unit}: {value.value}")
+        
+        return DataCenterValue.objects.all()
+    
+    @staticmethod
+    def recalculate_all_values():
+        """Recalculate all values based on active modules"""
+        # Get all active modules
+        active_modules = ActiveModule.objects.all()
+        
+        # Create a dictionary to store unit totals
+        unit_totals = {}
+        
+        # Calculate totals for each unit
+        for am in active_modules:
+            unit = am.module.unit
+            amount = am.module.amount
+            
+            if unit in unit_totals:
+                unit_totals[unit] += amount
+                logger.debug(f"Adding {amount} to existing total for {unit}, new total: {unit_totals[unit]}")
+            else:
+                unit_totals[unit] = amount
+                logger.debug(f"Setting initial total for {unit}: {amount}")
+        
+        logger.info(f"Calculated unit totals: {unit_totals}")
+        
+        # Update DataCenterValue objects
+        for unit, total in unit_totals.items():
+            value_obj = DataCenterValueService.get_or_create_value(unit)
+            old_value = value_obj.value
+            
+            # For Space_X and Space_Y, we subtract from the initial value
+            if unit in ['Space_X', 'Space_Y']:
+                # Get the initial value from specs
+                try:
+                    spec = DataCenterSpecs.objects.get(unit=unit)
+                    initial_value = spec.amount
+                    value_obj.value = initial_value - total
+                    logger.info(f"Unit {unit}: {initial_value} - {total} = {value_obj.value} (was {old_value})")
+                except DataCenterSpecs.DoesNotExist:
+                    # If no spec exists, just use the total
+                    value_obj.value = total
+                    logger.info(f"Unit {unit}: No spec found, using total {total} (was {old_value})")
+            else:
+                # For other units, we just use the total
+                value_obj.value = total
+                logger.info(f"Unit {unit}: Updated to {total} (was {old_value})")
+                
+            value_obj.save()
+
+class DataCenterSpecsService:
+    @staticmethod
+    def validate_current_values():
+        """
+        Validate that all current DataCenterValues meet the specifications
+        Returns True if all specs are met, False otherwise
+        """
+        logger.info("Validating data center specifications")
+        
+        # Get all specs
+        all_specs = DataCenterSpecs.objects.all()
+        logger.debug(f"Found {len(all_specs)} specifications to validate")
+        
+        # Track all violations to report them all
+        violations = []
+        
+        # Check each spec against current values
+        for spec in all_specs:
+            # Get current value for this unit
+            try:
+                current_value = DataCenterValue.objects.get(unit=spec.unit).value
+                logger.info(f"Unit: {spec.unit}, Current Value: {current_value}, Spec Amount: {spec.amount}")
+                
+                # Log constraint types with more detail
+                constraint_type = []
+                if spec.below_amount == 1:
+                    constraint_type.append("below or equal")
+                    logger.info(f"Constraint: Unit {spec.unit} should be BELOW OR EQUAL TO {spec.amount}")
+                if spec.above_amount == 1:
+                    constraint_type.append("above")
+                    logger.info(f"Constraint: Unit {spec.unit} should be ABOVE {spec.amount}")
+                if spec.minimize == 1:
+                    constraint_type.append("minimize")
+                    logger.info(f"Constraint: Unit {spec.unit} should be MINIMIZED")
+                if spec.maximize == 1:
+                    constraint_type.append("maximize")
+                    logger.info(f"Constraint: Unit {spec.unit} should be MAXIMIZED")
+                if spec.unconstrained == 1:
+                    constraint_type.append("unconstrained")
+                    logger.info(f"Constraint: Unit {spec.unit} is UNCONSTRAINED")
+                
+                logger.debug(f"Unit {spec.unit} has constraints: {', '.join(constraint_type)}")
+                
+            except DataCenterValue.DoesNotExist:
+                current_value = 0 if spec.unit not in ['Space_X', 'Space_Y'] else spec.amount
+                logger.info(f"No value found for unit {spec.unit}, using default: {current_value}")
+                
+            # Check constraints based on spec type with detailed logging
+            if spec.below_amount == 1:
+                logger.debug(f"Checking if {current_value} <= {spec.amount} for {spec.unit}")
+                if current_value > spec.amount:
+                    # Value should be below or equal to amount but isn't
+                    violation_msg = f"VALIDATION FAILED: Unit {spec.unit} value ({current_value}) exceeds maximum allowed ({spec.amount})"
+                    logger.error(violation_msg)
+                    logger.error(f"Difference: {current_value - spec.amount} over limit")
+                    violations.append(violation_msg)
+                else:
+                    logger.debug(f"PASSED: {spec.unit} value {current_value} is below or equal to limit {spec.amount}")
+            
+            if spec.above_amount == 1:
+                logger.debug(f"Checking if {current_value} >= {spec.amount} for {spec.unit}")
+                if current_value < spec.amount:
+                    # Value should be above amount but isn't
+                    violation_msg = f"VALIDATION FAILED: Unit {spec.unit} value ({current_value}) is below minimum required ({spec.amount})"
+                    logger.error(violation_msg)
+                    logger.error(f"Difference: {spec.amount - current_value} below requirement")
+                    violations.append(violation_msg)
+                else:
+                    logger.debug(f"PASSED: {spec.unit} value {current_value} is above minimum {spec.amount}")
+        
+        if violations:
+            logger.error(f"Validation failed with {len(violations)} violations: {'; '.join(violations)}")
+            return False
+        
+        logger.info("All specifications validated successfully")
+        return True
 
 class ModuleCalculationService:
     @staticmethod
@@ -44,7 +292,19 @@ class ModuleCalculationService:
         if active_modules is None:
             active_modules = ActiveModule.objects.all()
             
-        return {
-            'total_power': sum(am.module.amount for am in active_modules if am.module.unit == 'Usable_Power'),
-            # Add other calculations as needed
-        }
+        # Group by unit and sum amounts
+        unit_totals = {}
+        for am in active_modules:
+            unit = am.module.unit
+            amount = am.module.amount
+            
+            if unit in unit_totals:
+                unit_totals[unit] += amount
+            else:
+                unit_totals[unit] = amount
+                
+        # Add all DataCenterValues to the result
+        all_values = {value.unit: value.value for value in DataCenterValue.objects.all()}
+        
+        # Combine the dictionaries
+        return {**unit_totals, **all_values}

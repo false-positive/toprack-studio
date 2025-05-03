@@ -21,3 +21,16 @@ The backend API provides the following endpoints:
     }
     ```
   - Returns: Created active module details
+
+### Data Center Points
+
+- `POST /api/datacenter-points/` - Add a data center point at specific coordinates
+
+  - Required data:
+    ```json
+    {
+      "x": 100,
+      "y": 200
+    }
+    ```
+  - Returns: Created data center point details

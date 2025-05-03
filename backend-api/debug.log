@@ -1,0 +1,7 @@
+WARNING 2025-05-03 01:20:24,160 log Bad Request: /api/active-modules/
+WARNING 2025-05-03 01:22:01,057 log Bad Request: /api/active-modules/
+WARNING 2025-05-03 01:22:13,820 log Bad Request: /api/active-modules/
+WARNING 2025-05-03 01:23:10,514 log Bad Request: /api/active-modules/
+WARNING 2025-05-03 01:24:19,063 log Bad Request: /api/active-modules/
+WARNING 2025-05-03 02:01:21,697 log Method Not Allowed: /api/initialize-values/
+WARNING 2025-05-03 02:01:29,310 log Bad Request: /api/active-modules/
