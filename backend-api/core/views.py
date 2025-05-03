@@ -2,13 +2,13 @@ import random
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view, action
 from rest_framework.response import Response
-from .models import Module, ActiveModule, DataCenterValue, Point, DataCenterComponent, DataCenter
+from .models import Module, ActiveModule, DataCenterValue, Point, DataCenterComponent, DataCenter, ModuleAttribute
 from .serializers import (
     ModuleSerializer, ActiveModuleSerializer, 
     DataCenterComponentSerializer, DataCenterSerializer
 )
 from .services import (
-    ActiveModuleService, ModuleCalculationService, 
+    ActiveModuleService, 
     DataCenterValueService, DataCenterComponentService, 
     ModuleService
 )
@@ -17,7 +17,6 @@ from django.db import models
 from io import StringIO
 import sys
 from django.http import HttpResponse
-import uuid
 
 logger = logging.getLogger('django')
 
