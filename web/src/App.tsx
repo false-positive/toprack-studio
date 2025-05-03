@@ -5,6 +5,7 @@ import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
 import { fetchModules } from "./data/modules";
 import type { Module } from "../types";
+import { Sparkles } from "lucide-react";
 
 function App() {
   const [loadedModules, setLoadedModules] = useState<Module[]>([]);
@@ -79,15 +80,20 @@ function App() {
 
   return (
     <DndProvider backend={HTML5Backend}>
-      <div className="flex flex-col min-h-screen bg-background">
-        <header className="border-b bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/60 px-8 py-4 flex items-center shadow-sm">
-          <h1 className="text-base font-semibold tracking-tight text-gray-900">
-            Data Center Editor
-          </h1>
+      <div className="flex flex-col min-h-screen bg-background text-foreground dark">
+        <header className="w-full border-b border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0">
+          <div className="flex items-center gap-3 px-8 py-3">
+            <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-1.5">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <h1 className="text-base font-semibold tracking-tight">
+              Data Center Editor
+            </h1>
+          </div>
         </header>
         <main className="flex flex-1 overflow-hidden">
           <div className="flex-1 flex items-stretch">
-            <div className="flex-1 relative">
+            <div className="flex-1 relative bg-gradient-to-br from-background via-muted to-background">
               <RoomVisualization
                 roomDimensions={roomDimensions}
                 placedModules={placedModules}
@@ -96,7 +102,21 @@ function App() {
                 onModuleRotated={handleModuleRotated}
               />
             </div>
-            <aside className="w-80 max-w-xs border-l bg-muted/50 h-full flex flex-col overflow-y-auto sticky top-0">
+            <aside className="w-80 max-w-xs border-l border-border bg-card/90 h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6">
+              <div className="mb-6">
+                <h2 className="text-lg font-bold mb-4">Module Library</h2>
+                <div className="flex flex-col gap-2 bg-muted/50 rounded-lg p-3 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search modules..."
+                    className="input input-bordered w-full text-sm bg-background text-foreground border-border"
+                  />
+                  <select className="select select-bordered w-full text-sm bg-background text-foreground border-border">
+                    <option value="">All Types</option>
+                    {/* Dynamically render types here if needed */}
+                  </select>
+                </div>
+              </div>
               <ModuleLibrary
                 modules={loadedModules}
                 onModulePlaced={handleModulePlaced}
