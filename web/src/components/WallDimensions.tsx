@@ -57,5 +57,25 @@ export default function WallDimensions({ walls }: WallDimensionsProps) {
     };
   }, [map, walls]);
 
+  // Add styles for dimension labels for better contrast
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .dimension-label {
+      color: #fff !important;
+      font-weight: bold;
+      text-shadow: 0 0 4px #000, 0 0 2px #000;
+      font-size: 1rem;
+    }
+    .dimension-icon {
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+    }
+  `;
+  if (typeof window !== 'undefined' && !document.getElementById('dimension-label-style')) {
+    style.id = 'dimension-label-style';
+    document.head.appendChild(style);
+  }
+
   return null;
 }
