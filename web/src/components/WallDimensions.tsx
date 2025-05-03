@@ -71,6 +71,10 @@ export default function WallDimensions({ walls }: WallDimensionsProps) {
       width: 100%;
       height: 100%;
       text-align: center;
+      background: rgba(24, 24, 27, 0.92); /* darker, more opaque */
+      border-radius: 12px; /* rounded corners */
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10); /* soft shadow for lift */
+      padding: 0 12px;
     }
     .dimension-icon {
       background: transparent !important;
