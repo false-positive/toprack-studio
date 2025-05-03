@@ -23,9 +23,11 @@ interface RoomVisualizationProps {
   onModuleRemoved: (id: string) => void;
   onModuleRotated: (id: string) => void;
   mapRef: React.MutableRefObject<L.Map | null>;
-  TEMPORARY_REMOVE_SOON_tempMarkers: Array<{
-    id: string;
-    position: [number, number];
+  TEMPORARY_REMOVE_SOON_activeModules: Array<{
+    id: number;
+    x: number;
+    y: number;
+    module: number;
   }>;
 }
 
@@ -56,7 +58,7 @@ export default function RoomVisualization({
   onModuleRemoved,
   onModuleRotated,
   mapRef,
-  TEMPORARY_REMOVE_SOON_tempMarkers,
+  TEMPORARY_REMOVE_SOON_activeModules,
 }: RoomVisualizationProps) {
   const { setNodeRef } = useDroppable({
     id: "room",
@@ -132,13 +134,13 @@ export default function RoomVisualization({
           );
         })}
 
-        {/* TEMPORARY_REMOVE_SOON: tempMarkers as grid-aligned 1x1 squares with module ID */}
-        {TEMPORARY_REMOVE_SOON_tempMarkers.map((marker) => (
+        {/* TEMPORARY_REMOVE_SOON: activeModules as grid-aligned 1x1 squares with module number */}
+        {TEMPORARY_REMOVE_SOON_activeModules.map((marker) => (
           <Marker
-            key={`TEMPORARY_REMOVE_SOON_${marker.id}_${marker.position[0]}_${marker.position[1]}`}
-            position={marker.position}
+            key={`TEMPORARY_REMOVE_SOON_${marker.id}`}
+            position={[marker.x, marker.y]}
             icon={L.divIcon({
-              html: `<div style="width: 20px; height: 20px; background: #fbbf24; color: #18181b; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid #92400e; border-radius: 2px;">${marker.id}</div>`,
+              html: `<div style="width: 20px; height: 20px; background: #fbbf24; color: #18181b; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid #92400e; border-radius: 2px;">${marker.module}</div>`,
               className: "",
               iconSize: [20, 20],
               iconAnchor: [10, 10],
