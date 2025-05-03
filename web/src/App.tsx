@@ -53,6 +53,11 @@ function App() {
   const mapRef = useRef<L.Map | null>(null);
   const lastMousePosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  const [
+    TEMPORARY_REMOVE_SOON_tempMarkers,
+    setTEMPORARY_REMOVE_SOON_tempMarkers,
+  ] = useState<Array<{ id: string; position: [number, number] }>>([]);
+
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
       lastMousePosition.current = { x: e.clientX, y: e.clientY };
@@ -119,16 +124,28 @@ function App() {
       }}
       onDragEnd={(event) => {
         setActiveModuleId(null);
-        if (event.over && event.over.id === "room" && mapRef.current) {
+        if (
+          event.over &&
+          event.over.id === "room" &&
+          mapRef.current &&
+          activeModuleId
+        ) {
           const { x, y } = lastMousePosition.current;
           const mapContainer = mapRef.current.getContainer();
           const rect = mapContainer.getBoundingClientRect();
           const point = L.point(x - rect.left, y - rect.top);
           const latlng = mapRef.current.containerPointToLatLng(point);
-          const intCoords = [Math.round(latlng.lat), Math.round(latlng.lng)];
+          const intCoords: [number, number] = [
+            Math.round(latlng.lat),
+            Math.round(latlng.lng),
+          ];
           alert(
             `Module dropped at map coordinates: ${intCoords[0]}, ${intCoords[1]}`
           );
+          setTEMPORARY_REMOVE_SOON_tempMarkers((prev) => [
+            ...prev,
+            { id: activeModuleId, position: intCoords },
+          ]);
         }
         // handle drop logic here if needed
       }}
@@ -155,6 +172,9 @@ function App() {
                 onModuleRemoved={handleModuleRemoved}
                 onModuleRotated={handleModuleRotated}
                 mapRef={mapRef}
+                TEMPORARY_REMOVE_SOON_tempMarkers={
+                  TEMPORARY_REMOVE_SOON_tempMarkers
+                }
               />
             </div>
             {/* <ModuleCard

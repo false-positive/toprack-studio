@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { MapContainer, Polyline, useMap } from "react-leaflet";
+import { MapContainer, Polyline, useMap, Marker } from "react-leaflet";
 import L from "leaflet";
 import type { Module } from "../../types";
 import PlacedModule from "./PlacedModule";
@@ -23,6 +23,10 @@ interface RoomVisualizationProps {
   onModuleRemoved: (id: string) => void;
   onModuleRotated: (id: string) => void;
   mapRef: React.MutableRefObject<L.Map | null>;
+  TEMPORARY_REMOVE_SOON_tempMarkers: Array<{
+    id: string;
+    position: [number, number];
+  }>;
 }
 
 // Component to handle map events and interactions
@@ -52,6 +56,7 @@ export default function RoomVisualization({
   onModuleRemoved,
   onModuleRotated,
   mapRef,
+  TEMPORARY_REMOVE_SOON_tempMarkers,
 }: RoomVisualizationProps) {
   const { setNodeRef } = useDroppable({
     id: "room",
@@ -126,6 +131,21 @@ export default function RoomVisualization({
             />
           );
         })}
+
+        {/* TEMPORARY_REMOVE_SOON: tempMarkers as grid-aligned 1x1 squares with module ID */}
+        {TEMPORARY_REMOVE_SOON_tempMarkers.map((marker) => (
+          <Marker
+            key={`TEMPORARY_REMOVE_SOON_${marker.id}_${marker.position[0]}_${marker.position[1]}`}
+            position={marker.position}
+            icon={L.divIcon({
+              html: `<div style="width: 20px; height: 20px; background: #fbbf24; color: #18181b; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid #92400e; border-radius: 2px;">${marker.id}</div>`,
+              className: "",
+              iconSize: [20, 20],
+              iconAnchor: [10, 10],
+            })}
+            interactive={false}
+          />
+        ))}
 
         {/* Event handlers */}
         <MapEventHandler />
