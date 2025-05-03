@@ -26,6 +26,9 @@ This project uses `uv` for Python dependency management. To set up the project:
 
 The backend uses the following data models to represent the data center configuration:
 
+![alt text](db_diagram.png)
+A little messy :)
+
 ### Point
 
 Internal model representing a point in 2D space that can be associated with various objects.
