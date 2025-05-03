@@ -1,4 +1,4 @@
-import { Rectangle } from "react-leaflet";
+import { Rectangle, Popup } from "react-leaflet";
 import type { ActiveModule } from "../../types";
 
 interface PlacedModuleProps {
@@ -18,6 +18,19 @@ export default function PlacedModule({ activeModule }: PlacedModuleProps) {
         [activeModule.x + spaceX / 2, activeModule.y + spaceY / 2],
       ]}
       pathOptions={{ color: "#38bdf8", weight: 2, fillOpacity: 0.3 }}
-    />
+    >
+      <Popup>
+        <div className="flex flex-col gap-2">
+          <div className="font-bold text-lg">
+            {activeModule.module_details.name}
+          </div>
+          {/* <div className="text-xs text-muted-foreground break-all">
+            <pre className="whitespace-pre-wrap">
+              {JSON.stringify(activeModule.module_details.attributes, null, 2)}
+            </pre>
+          </div> */}
+        </div>
+      </Popup>
+    </Rectangle>
   );
 }
