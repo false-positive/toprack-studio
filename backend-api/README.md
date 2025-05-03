@@ -214,6 +214,54 @@ GET /api/warmth-image/
 
 This endpoint returns the most recently uploaded warmth image. If no image has been uploaded, it returns a 404 error.
 
+### 9. Display Control Management
+
+The API provides endpoints to manage which interface (website or VR) should be displaying information:
+
+**Toggle display control:**
+
+```
+GET /api/display-control/toggle/
+```
+
+This endpoint switches the current display between 'website' and 'vr'. Each call toggles to the other option.
+
+Example response:
+
+```json
+{
+  "status": "success",
+  "status_code": 200,
+  "message": "Display control switched to vr",
+  "data": {
+    "current_display": "vr"
+  }
+}
+```
+
+**Check current display control:**
+
+```
+GET /api/display-control/
+```
+
+This endpoint returns the current display setting without changing it.
+
+Example response:
+
+```json
+{
+  "status": "success",
+  "status_code": 200,
+  "message": "Current display is website",
+  "data": {
+    "current_display": "website"
+  }
+}
+```
+
+These endpoints help coordinate which interface (website or VR) should be actively displaying information at any given time.
+
 This workflow allows you to iteratively design and optimize your data center layout while ensuring all constraints are satisfied.
 
 ## Data Models

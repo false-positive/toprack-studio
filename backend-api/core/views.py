@@ -26,6 +26,11 @@ warmth_image = {
     'content_type': None
 }
 
+# Single global variable to track who's turn it is to show info
+display_control = {
+    'current_display': 'website'  # Initial value, can be 'website' or 'vr'
+}
+
 def custom_exception_handler(exc, context):
     from rest_framework.views import exception_handler
     
@@ -1064,4 +1069,34 @@ def debug_active_modules(request):
         'message': 'Active modules retrieved successfully',
         'count': len(data),
         'data': data
+    })
+
+@api_view(['GET'])
+def toggle_display_control(request):
+    """API endpoint to toggle who should be showing info (VR or website)"""
+    # Toggle the current display
+    if display_control['current_display'] == 'website':
+        display_control['current_display'] = 'vr'
+    else:
+        display_control['current_display'] = 'website'
+    
+    return Response({
+        'status': 'success',
+        'status_code': status.HTTP_200_OK,
+        'message': f"Display control switched to {display_control['current_display']}",
+        'data': {
+            'current_display': display_control['current_display']
+        }
+    })
+
+@api_view(['GET'])
+def get_display_control(request):
+    """API endpoint to check who's currently showing info (VR or website)"""
+    return Response({
+        'status': 'success',
+        'status_code': status.HTTP_200_OK,
+        'message': f"Current display is {display_control['current_display']}",
+        'data': {
+            'current_display': display_control['current_display']
+        }
     })
