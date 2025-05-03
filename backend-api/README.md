@@ -352,17 +352,42 @@ The backend API provides the following essential endpoints:
 
 - `GET /api/active-modules/` - List all placed modules
 
-  - Returns: List of all active modules
+  - Returns: List of all active modules with detailed module information
   - Example response:
     ```json
     {
-      "active_modules": [
+      "status": "success",
+      "status_code": 200,
+      "message": "Active modules retrieved successfully",
+      "data": [
         {
           "id": 1,
           "x": 10,
           "y": 20,
           "module": 1,
-          "data_center_component": 1
+          "data_center_component": 1,
+          "module_details": {
+            "id": 1,
+            "name": "Transformer_100",
+            "attributes": {
+              "Grid_Connection": {
+                "amount": 1,
+                "is_input": true,
+                "is_output": false
+              },
+              "Space_X": {
+                "amount": 40,
+                "is_input": false,
+                "is_output": false
+              },
+              "Usable_Power": {
+                "amount": 100,
+                "is_input": false,
+                "is_output": true
+              }
+            }
+          },
+          "component_name": "Server_Square"
         }
       ]
     }
@@ -379,15 +404,42 @@ The backend API provides the following essential endpoints:
       "data_center_component": 1
     }
     ```
-  - Returns: Created active module details
+  - Returns: Created active module details with full module information
   - Example response:
     ```json
     {
-      "id": 1,
-      "x": 10,
-      "y": 20,
-      "module": 1,
-      "data_center_component": 1
+      "status": "success",
+      "status_code": 201,
+      "message": "Active module created successfully",
+      "data": {
+        "id": 1,
+        "x": 10,
+        "y": 20,
+        "module": 1,
+        "data_center_component": 1,
+        "module_details": {
+          "id": 1,
+          "name": "Transformer_100",
+          "attributes": {
+            "Grid_Connection": {
+              "amount": 1,
+              "is_input": true,
+              "is_output": false
+            },
+            "Space_X": {
+              "amount": 40,
+              "is_input": false,
+              "is_output": false
+            },
+            "Usable_Power": {
+              "amount": 100,
+              "is_input": false,
+              "is_output": true
+            }
+          }
+        },
+        "component_name": "Server_Square"
+      }
     }
     ```
   - Note: This endpoint only saves the module without validating constraints

@@ -65,6 +65,28 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
     queryset = ActiveModule.objects.all()
     serializer_class = ActiveModuleSerializer
 
+    def list(self, request, *args, **kwargs):
+        """List all active modules with detailed information"""
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "status": "success",
+            "status_code": status.HTTP_200_OK,
+            "message": "Active modules retrieved successfully",
+            "data": serializer.data
+        })
+
+    def retrieve(self, request, *args, **kwargs):
+        """Retrieve a specific active module with detailed information"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            "status": "success",
+            "status_code": status.HTTP_200_OK,
+            "message": "Active module retrieved successfully",
+            "data": serializer.data
+        })
+
     def create(self, request, *args, **kwargs):
         """Create a new active module"""
         try:
