@@ -25,11 +25,7 @@ interface RoomVisualizationProps {
 }
 
 // Component to handle map events and interactions
-function MapEventHandler({
-  onDrop,
-}: {
-  onDrop: (position: [number, number]) => void;
-}) {
+function MapEventHandler() {
   const map = useMap();
 
   useEffect(() => {
@@ -52,19 +48,16 @@ function MapEventHandler({
 function DropLayer({
   onModulePlaced,
 }: {
-  onModulePlaced: (moduleId: string, position: [number, number]) => void;
+  onModulePlaced: (moduleId: string) => void;
 }) {
   const map = useMap();
 
   const [, drop] = useDrop({
     accept: "MODULE",
-    drop: (item: { id: string }, monitor) => {
-      const clientOffset = monitor.getClientOffset();
-      if (clientOffset) {
-        const point = L.point(clientOffset.x, clientOffset.y);
-        const latlng = map.containerPointToLatLng(point);
-        onModulePlaced(item.id, [latlng.lat, latlng.lng]);
-      }
+    drop: (item: { id: string }) => {
+      // const point = L.point(clientOffset.x, clientOffset.y);
+      // const latlng = map.containerPointToLatLng(point);
+      onModulePlaced(item.id);
     },
   });
 
@@ -102,14 +95,12 @@ export default function RoomVisualization({
     };
   });
 
-  const handleModulePlaced = (moduleId: string, position: [number, number]) => {
-    // Adjust position if needed
-    const adjustedPosition: [number, number] = [position[0], position[1]];
+  const handleModulePlaced = (moduleId: string) => {
     onModuleRemoved(moduleId);
   };
 
   return (
-    <div className="room-visualization">
+    <div className="absolute inset-0 h-full w-full">
       <MapContainer
         center={[roomDimensions.height / 2, roomDimensions.width / 2]}
         zoom={1}
@@ -118,10 +109,11 @@ export default function RoomVisualization({
         scrollWheelZoom={true}
         crs={L.CRS.Simple}
         bounds={bounds}
-        style={{ height: "100%", width: "100%" }}
-        whenCreated={(map) => {
-          mapRef.current = map;
-          map.fitBounds(bounds);
+        className="h-full w-full"
+        whenReady={() => {
+          if (mapRef.current) {
+            mapRef.current.fitBounds(bounds);
+          }
         }}
       >
         {/* Background grid */}
@@ -165,7 +157,7 @@ export default function RoomVisualization({
         })}
 
         {/* Event handlers */}
-        <MapEventHandler onDrop={(pos) => console.log("Dropped at", pos)} />
+        <MapEventHandler />
         <DropLayer onModulePlaced={handleModulePlaced} />
       </MapContainer>
     </div>

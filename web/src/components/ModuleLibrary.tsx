@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useDrag } from "react-dnd";
-import type { Module } from "../types";
+import type { Module } from "../../types";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 
 interface ModuleLibraryProps {
   modules: Module[];
@@ -20,32 +22,49 @@ function ModuleItem({ module }: ModuleItemProps) {
     }),
   }));
 
+  // Use a callback ref to attach drag to the Card
+  const setDragRef = (node: HTMLDivElement | null) => {
+    if (node) drag(node);
+  };
+
   return (
-    <div
-      ref={drag}
-      className={`module-item ${isDragging ? "dragging" : ""}`}
-      style={{ opacity: isDragging ? 0.5 : 1 }}
+    <Card
+      ref={setDragRef}
+      className={`flex items-center gap-4 p-4 mb-2 shadow transition-opacity ${
+        isDragging ? "opacity-50" : "opacity-100"
+      }`}
     >
-      <div className="module-icon" style={{ backgroundColor: module.color }}>
+      <div
+        className="flex items-center justify-center w-12 h-12 rounded bg-gray-100 text-lg font-bold"
+        style={{ backgroundColor: module.color }}
+      >
         {module.icon || module.name.charAt(0)}
       </div>
-      <div className="module-details">
-        <h3>{module.name}</h3>
-        <p className="module-dimensions">
+      <div className="flex-1">
+        <h3 className="font-semibold text-base leading-tight">{module.name}</h3>
+        <p className="text-xs text-muted-foreground">
           {module.width}m × {module.depth}m
         </p>
-        <div className="module-info">
-          <span className="module-type">{module.type}</span>
-          <span className="module-price">
+        <div className="flex gap-2 mt-1 text-xs">
+          <span className="bg-muted px-2 py-0.5 rounded">{module.type}</span>
+          <span className="bg-muted px-2 py-0.5 rounded">
             {module.amount} {module.unit}
           </span>
         </div>
-        <div className="module-io">
-          {module.isInput && <span className="module-input">Input</span>}
-          {module.isOutput && <span className="module-output">Output</span>}
+        <div className="flex gap-2 mt-1 text-xs">
+          {module.isInput && (
+            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+              Input
+            </span>
+          )}
+          {module.isOutput && (
+            <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded">
+              Output
+            </span>
+          )}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -60,7 +79,6 @@ export default function ModuleLibrary({
   const moduleTypes = Array.from(new Set(modules.map((m) => m.type)));
 
   // Filter modules based on search and type filter
-  console.log("[DEBUG] modules:", modules);
   const filteredModules = modules.filter((module) => {
     const matchesSearch = module.name
       .toLowerCase()
@@ -68,25 +86,23 @@ export default function ModuleLibrary({
     const matchesType = !typeFilter || module.type === typeFilter;
     return matchesSearch && matchesType;
   });
-  console.log("[DEBUG] filteredModules:", filteredModules);
 
   return (
-    <div className="module-library">
-      <h2>Module Library</h2>
+    <div className="flex flex-col gap-4 p-4">
+      <h2 className="text-xl font-bold mb-2">Module Library</h2>
 
-      <div className="library-filters">
+      <div className="flex gap-2 mb-2">
         <input
           type="text"
           placeholder="Search modules..."
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="search-input"
+          className="input input-bordered w-full max-w-xs"
         />
-
         <select
           value={typeFilter || ""}
           onChange={(e) => setTypeFilter(e.target.value || null)}
-          className="type-filter"
+          className="select select-bordered"
         >
           <option value="">All Types</option>
           {moduleTypes.map((type) => (
@@ -97,13 +113,13 @@ export default function ModuleLibrary({
         </select>
       </div>
 
-      <div className="modules-list">
+      <div className="flex flex-col gap-2">
         {filteredModules.length > 0 ? (
           filteredModules.map((module) => (
             <ModuleItem key={module.id} module={module} />
           ))
         ) : (
-          <div className="no-modules">
+          <div className="text-muted-foreground text-center py-4">
             No modules match your search criteria
           </div>
         )}
