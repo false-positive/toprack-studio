@@ -577,14 +577,20 @@ class ModuleCalculationService:
                     results[unit] += amount
         
         for unit, value in results.items():
-            dcv, created = DataCenterValue.objects.get_or_create(
+            # First, try to update existing global values (where component is None)
+            updated = DataCenterValue.objects.filter(
                 data_center=data_center,
                 unit=unit,
-                defaults={'value': value}
-            )
+                component__isnull=True
+            ).update(value=value)
             
-            if not created:
-                dcv.value = value
-                dcv.save()
+            # If no records were updated, create a new one
+            if not updated:
+                DataCenterValue.objects.create(
+                    data_center=data_center,
+                    unit=unit,
+                    value=value,
+                    component=None  # Explicitly set component to None for global values
+                )
         
         return results
