@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
-    Module, ActiveModule, DataCenterPoints, ModuleAttribute,
-    DataCenterComponent, DataCenterComponentAttribute, DataCenter
+    Module, ActiveModule, ModuleAttribute,
+    DataCenterComponent, DataCenterComponentAttribute, DataCenter, Point
 )
 
 class ModuleAttributeSerializer(serializers.ModelSerializer):
@@ -29,47 +29,165 @@ class ModuleSerializer(serializers.ModelSerializer):
         return result
 
 class DataCenterSerializer(serializers.ModelSerializer):
+    """
+    Serializer for DataCenter model.
+    Includes points that define the polygon shape of the data center.
+    """
+    points = serializers.SerializerMethodField()
+    width = serializers.SerializerMethodField()
+    height = serializers.SerializerMethodField()
+    
     class Meta:
         model = DataCenter
-        fields = ['id', 'name', 'space_x', 'space_y']
+        fields = ['id', 'name', 'width', 'height', 'points']
+    
+    def get_points(self, obj):
+        """Get all points associated with this data center"""
+        points = obj.points.all().order_by('id')  # Order by ID to maintain consistent order
+        return PointSerializer(points, many=True).data
+    
+    def get_width(self, obj):
+        """Get the width (space_x) of the data center"""
+        return obj.space_x
+    
+    def get_height(self, obj):
+        """Get the height (space_y) of the data center"""
+        return obj.space_y
+    
+    def create(self, validated_data):
+        """Create a new data center with default rectangular shape"""
+        data_center = DataCenter.objects.create(**validated_data)
+        
+        # Points will be added automatically in the save method
+        return data_center
+
+class PointSerializer(serializers.ModelSerializer):
+    """Internal serializer for Point model - not exposed via API"""
+    class Meta:
+        model = Point
+        fields = ['id', 'x', 'y']
 
 class ActiveModuleSerializer(serializers.ModelSerializer):
-    """Serializer for ActiveModule model"""
+    """
+    Serializer for ActiveModule model.
+    
+    When creating: Requires module, data_center_component, x, and y.
+    When updating: Only allows changing x and y (the point).
+    """
     module_details = serializers.SerializerMethodField()
     component_name = serializers.SerializerMethodField()
+    x = serializers.IntegerField(write_only=True, required=True)
+    y = serializers.IntegerField(write_only=True, required=True)
+    width = serializers.SerializerMethodField()
+    height = serializers.SerializerMethodField()
     
     class Meta:
         model = ActiveModule
-        fields = ['id', 'x', 'y', 'module', 'data_center_component', 'module_details', 
-                 'component_name']
-        read_only_fields = ['id', 'module_details', 'component_name']
+        fields = ['id', 'x', 'y', 'width', 'height', 'module', 'data_center_component', 
+                 'module_details', 'component_name', 'data_center']
+        read_only_fields = ['id', 'module_details', 'component_name', 'width', 'height']
+        extra_kwargs = {
+            'module': {'required': True, 'write_only': False},
+            'data_center_component': {'required': False, 'write_only': False},
+            'data_center': {'required': False, 'write_only': True}
+        }
     
     def get_module_details(self, obj):
         """Get detailed information about the module"""
-        if not obj.module:
-            return None
-            
-        # Get module attributes
-        attributes = ModuleAttribute.objects.filter(module=obj.module)
-        attr_data = {}
-        for attr in attributes:
-            attr_data[attr.unit] = {
-                'amount': attr.amount,
-                'is_input': attr.is_input,
-                'is_output': attr.is_output
-            }
-            
-        return {
-            'id': obj.module.id,
-            'name': obj.module.name,
-            'attributes': attr_data
-        }
+        if obj.module:
+            return ModuleSerializer(obj.module).data
+        return None
     
     def get_component_name(self, obj):
         """Get the name of the data center component"""
         if obj.data_center_component:
             return obj.data_center_component.name
-        return None
+        return "No component"
+    
+    def get_width(self, obj):
+        """Get the width (Space_X) of the module"""
+        if obj.module:
+            attr = ModuleAttribute.objects.filter(module=obj.module, unit='Space_X').first()
+            if attr:
+                return attr.amount
+        return 0
+    
+    def get_height(self, obj):
+        """Get the height (Space_Y) of the module"""
+        if obj.module:
+            attr = ModuleAttribute.objects.filter(module=obj.module, unit='Space_Y').first()
+            if attr:
+                return attr.amount
+        return 0
+    
+    def to_representation(self, instance):
+        """Add x and y coordinates to the output representation"""
+        representation = super().to_representation(instance)
+        if instance.point:
+            representation['x'] = instance.point.x
+            representation['y'] = instance.point.y
+        return representation
+    
+    def validate(self, data):
+        """
+        Validate the data based on whether this is a create or update operation.
+        For create: Ensure module and coordinates are provided.
+        For update: Only allow changing coordinates.
+        """
+        if self.instance:  # This is an update
+            # Only allow x and y to be changed
+            if 'module' in self.initial_data:
+                raise serializers.ValidationError("Cannot change module after creation")
+            if 'data_center_component' in self.initial_data:
+                raise serializers.ValidationError("Cannot change data_center_component after creation")
+            if 'data_center' in self.initial_data:
+                raise serializers.ValidationError("Cannot change data_center after creation")
+            
+            # Ensure x and y are provided
+            if 'x' not in data or 'y' not in data:
+                raise serializers.ValidationError("Must provide both x and y coordinates")
+        else:  # This is a create
+            # Ensure module is provided
+            if 'module' not in data:
+                raise serializers.ValidationError("Module is required")
+            
+            # Ensure x and y are provided
+            if 'x' not in data or 'y' not in data:
+                raise serializers.ValidationError("Must provide both x and y coordinates")
+        
+        return data
+    
+    def create(self, validated_data):
+        """Create a new active module with a point"""
+        # Extract x and y from validated data
+        x = validated_data.pop('x')
+        y = validated_data.pop('y')
+        
+        # Create or get the point
+        point, created = Point.objects.get_or_create(x=x, y=y)
+        
+        # Create the active module with the point
+        active_module = ActiveModule.objects.create(
+            point=point,
+            **validated_data
+        )
+        
+        return active_module
+    
+    def update(self, instance, validated_data):
+        """Update only the point of an active module"""
+        # Extract x and y from validated data
+        x = validated_data.pop('x')
+        y = validated_data.pop('y')
+        
+        # Create or get the point
+        point, created = Point.objects.get_or_create(x=x, y=y)
+        
+        # Update only the point
+        instance.point = point
+        instance.save()
+        
+        return instance
 
 class DataCenterComponentAttributeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -108,5 +226,5 @@ class DataCenterComponentSerializer(serializers.ModelSerializer):
 
 class DataCenterPointsSerializer(serializers.ModelSerializer):
     class Meta:
-        model = DataCenterPoints
+        model = Point
         fields = '__all__'

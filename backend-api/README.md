@@ -26,6 +26,14 @@ This project uses `uv` for Python dependency management. To set up the project:
 
 The backend uses the following data models to represent the data center configuration:
 
+### Point
+
+Internal model representing a point in 2D space that can be associated with various objects.
+
+- **Fields**:
+  - `x`: X-coordinate
+  - `y`: Y-coordinate
+
 ### Module
 
 Represents a building block that can be placed in the data center.
@@ -69,12 +77,12 @@ Defines constraints and specifications for a data center component.
 ### ActiveModule
 
 Represents a module placed at specific coordinates in the data center.
+Once created, only the position (x, y) can be changed.
 
 - **Fields**:
+  - `point`: Foreign key to Point (defines the location)
   - `module`: Foreign key to Module
   - `data_center_component`: Foreign key to DataCenterComponent
-  - `x`: X-coordinate position
-  - `y`: Y-coordinate position
   - `data_center`: Foreign key to DataCenter
 
 ### DataCenter
@@ -85,6 +93,7 @@ Represents a data center configuration.
   - `name`: Name of the data center
   - `space_x`: Total available space in X dimension
   - `space_y`: Total available space in Y dimension
+  - `points`: Many-to-many relationship with Point (defines the boundary of the data center)
 
 ### DataCenterValue
 
@@ -94,15 +103,6 @@ Tracks the current value of a resource for a component.
   - `component`: Foreign key to DataCenterComponent (null for global values)
   - `unit`: Type of resource
   - `value`: Current value of the resource
-  - `data_center`: Foreign key to DataCenter
-
-### DataCenterPoints
-
-Represents coordinate points in the data center.
-
-- **Fields**:
-  - `x`: X-coordinate
-  - `y`: Y-coordinate
   - `data_center`: Foreign key to DataCenter
 
 ## Model Relationships and Logic
@@ -123,9 +123,15 @@ Represents coordinate points in the data center.
 
    - When a module is placed, an `ActiveModule` record is created
    - It references both the module type and the component it's placed in
-   - The coordinates determine its position in the data center
+   - The coordinates determine its position in the data center via the `Point` model
 
-4. **Resource Calculation**:
+4. **Data Center Geometry**:
+
+   - The `DataCenter` model has a many-to-many relationship with `Point`
+   - These points define the boundary of the data center
+   - The order of points matters for drawing the boundary correctly
+
+5. **Resource Calculation**:
 
    - `DataCenterValue` records track the current value of each resource
    - When modules are added/removed, these values are recalculated
@@ -134,7 +140,7 @@ Represents coordinate points in the data center.
      - Subtracts all resources consumed by modules in that component
      - Checks if the resulting values meet the component's constraints
 
-5. **Validation Logic**:
+6. **Validation Logic**:
 
    - For each component, the system checks:
      - `below_amount=1`: Value must be less than or equal to the specified amount
@@ -143,7 +149,7 @@ Represents coordinate points in the data center.
      - `maximize=1`: Value should be maximized (optimization goal)
    - If any constraint is violated, validation fails
 
-6. **Special Resources**:
+7. **Special Resources**:
    - `Space_X/Space_Y`: Represent available space (decreases as modules are added)
    - `Price`: Represents total cost (increases as modules are added)
    - `Processing/Data_Storage`: Represent capacity (increases as modules are added)
@@ -155,13 +161,49 @@ Represents coordinate points in the data center.
 
 When first setting up the application, follow these steps:
 
-1. **Initialize Values**:
+1. **Create a Data Center**:
+
+   ```
+   POST /api/create-data-center/
+   ```
+
+   This creates a new data center and initializes DataCenterValue objects based on component constraints.
+
+   Example request:
+
+   ```json
+   {
+     "name": "My Custom Data Center"
+   }
+   ```
+
+   Example response:
+
+   ```json
+   {
+     "status": "success",
+     "status_code": 201,
+     "message": "Data center 'My Custom Data Center' created successfully with 12 initialized values",
+     "data": {
+       "id": 1,
+       "name": "My Custom Data Center",
+       "width": 1000,
+       "height": 500,
+       "points": [
+         { "x": 0, "y": 0 },
+         { "x": 1000, "y": 0 },
+         { "x": 1000, "y": 500 },
+         { "x": 0, "y": 500 }
+       ]
+     }
+   }
+   ```
+
+   Note: For backward compatibility, you can still use the following endpoint:
 
    ```
    POST /api/initialize-values-from-components/
    ```
-
-   This creates initial DataCenterValue objects based on component constraints.
 
 2. **Load Available Modules**:
 
@@ -172,12 +214,20 @@ When first setting up the application, follow these steps:
    This retrieves all module types that can be placed in the data center.
 
 3. **Load Data Center Components**:
+
    ```
    GET /api/datacenter-components/
    ```
+
    This retrieves all data center components and their constraints.
 
-**^ You need info from 2 and 3 to create active modules**
+4. **Get Data Center Information**:
+   ```
+   GET /api/datacenters/1/
+   ```
+   This retrieves information about the default data center, including its boundary points.
+
+**^ You need info from 2, 3, and 4 to create active modules**
 
 ### User Interaction Flow
 
@@ -207,7 +257,15 @@ After initial setup, the typical user interaction flow is:
 
    This provides detailed validation information if there are issues.
 
-4. **Remove a Module (if needed)**:
+4. **Update Module Position**:
+
+   ```
+   PATCH /api/active-modules/{id}/
+   ```
+
+   This updates the position (x, y) of a previously placed module.
+
+5. **Remove a Module (if needed)**:
 
    ```
    DELETE /api/active-modules/{id}/
@@ -215,7 +273,15 @@ After initial setup, the typical user interaction flow is:
 
    This removes a previously placed module.
 
-5. **Recalculate Resources After Changes**:
+6. **Update Data Center Boundary**:
+
+   ```
+   POST /api/datacenters/{id}/update_points/
+   ```
+
+   This updates the boundary points of the data center.
+
+7. **Recalculate Resources After Changes**:
    ```
    GET /api/calculate-resources/
    ```
@@ -228,22 +294,61 @@ After initial setup, the typical user interaction flow is:
    - Initialize values: `POST /api/initialize-values-from-components/`
    - Get available modules: `GET /api/modules/`
    - Get data center components: `GET /api/datacenter-components/`
+   - Get data center information: `GET /api/datacenters/1/`
 
-2. **User Places Modules**:
+2. **Define Data Center Boundary**:
+
+   - Update data center points: `POST /api/datacenters/1/update_points/`
+
+   ```json
+   {
+     "points": [
+       { "x": 0, "y": 0 },
+       { "x": 1000, "y": 0 },
+       { "x": 1000, "y": 500 },
+       { "x": 0, "y": 500 }
+     ]
+   }
+   ```
+
+3. **User Places Modules**:
 
    - Place a transformer: `POST /api/active-modules/` (with transformer module data)
+
+   ```json
+   {
+     "module": 1,
+     "data_center_component": 1,
+     "x": 100,
+     "y": 200
+   }
+   ```
+
    - Check validation: `GET /api/calculate-resources/`
    - Place a server rack: `POST /api/active-modules/` (with server rack module data)
    - Check validation: `GET /api/calculate-resources/`
 
-3. **User Fixes Validation Issues**:
+4. **User Adjusts Module Positions**:
+
+   - Update module position: `PATCH /api/active-modules/1/`
+
+   ```json
+   {
+     "x": 150,
+     "y": 250
+   }
+   ```
+
+   - Check validation: `GET /api/calculate-resources/`
+
+5. **User Fixes Validation Issues**:
 
    - Get detailed validation: `GET /api/validate-component-values/`
    - Remove problematic module: `DELETE /api/active-modules/{id}/`
    - Place different module: `POST /api/active-modules/` (with new module data)
    - Check validation: `GET /api/calculate-resources/`
 
-4. **Final Configuration**:
+6. **Final Configuration**:
    - Get all active modules: `GET /api/active-modules/`
    - Get final resource totals: `GET /api/calculate-resources/`
 
@@ -348,6 +453,96 @@ The backend API provides the following essential endpoints:
     }
     ```
 
+### Data Centers
+
+- `GET /api/datacenters/` - List all data centers
+
+  - Returns: List of all data centers with their properties
+  - Example response:
+    ```json
+    {
+      "status": "success",
+      "status_code": 200,
+      "message": "Data centers retrieved successfully",
+      "data": [
+        {
+          "id": 1,
+          "name": "Default Data Center",
+          "space_x": 1000,
+          "space_y": 500,
+          "points": [
+            { "x": 0, "y": 0 },
+            { "x": 1000, "y": 0 },
+            { "x": 1000, "y": 500 },
+            { "x": 0, "y": 500 }
+          ]
+        }
+      ]
+    }
+    ```
+
+- `GET /api/datacenters/{id}/` - Get a specific data center
+
+  - Returns: Detailed information about a specific data center
+  - Example response:
+    ```json
+    {
+      "status": "success",
+      "status_code": 200,
+      "message": "Data center retrieved successfully",
+      "data": {
+        "id": 1,
+        "name": "Default Data Center",
+        "space_x": 1000,
+        "space_y": 500,
+        "points": [
+          { "x": 0, "y": 0 },
+          { "x": 1000, "y": 0 },
+          { "x": 1000, "y": 500 },
+          { "x": 0, "y": 500 }
+        ]
+      }
+    }
+    ```
+
+- `POST /api/datacenters/{id}/update_points/` - Update data center boundary points
+
+  - Required fields: `points` (array of {x, y} objects)
+  - Returns: Updated data center information
+  - Example request:
+    ```json
+    {
+      "points": [
+        { "x": 0, "y": 0 },
+        { "x": 1000, "y": 0 },
+        { "x": 1000, "y": 500 },
+        { "x": 500, "y": 500 },
+        { "x": 0, "y": 500 }
+      ]
+    }
+    ```
+  - Example response:
+    ```json
+    {
+      "status": "success",
+      "status_code": 200,
+      "message": "Data center points updated successfully",
+      "data": {
+        "id": 1,
+        "name": "Default Data Center",
+        "space_x": 1000,
+        "space_y": 500,
+        "points": [
+          { "x": 0, "y": 0 },
+          { "x": 1000, "y": 0 },
+          { "x": 1000, "y": 500 },
+          { "x": 500, "y": 500 },
+          { "x": 0, "y": 500 }
+        ]
+      }
+    }
+    ```
+
 ### Active Modules
 
 - `GET /api/active-modules/` - List all placed modules
@@ -364,8 +559,11 @@ The backend API provides the following essential endpoints:
       "data": [
         {
           "id": 1,
-          "x": 10,
-          "y": 20,
+          "point": {
+            "id": 1,
+            "x": 10,
+            "y": 20
+          },
           "module": 1,
           "data_center_component": 1,
           "module_details": {
@@ -395,35 +593,29 @@ The backend API provides the following essential endpoints:
       "data_center": {
         "id": 1,
         "name": "Default Data Center",
-        "space_x": 1000,
-        "space_y": 500,
-        "space_x_used": 40,
-        "space_y_used": 0,
-        "space_x_available": 960,
-        "space_y_available": 500
-      },
-      "resources": {
-        "Grid_Connection": -1,
-        "Space_X": 40,
-        "Usable_Power": 100,
-        "Space_X_Available": 960,
-        "Space_Y_Available": 500
+        "width": 1000,
+        "height": 500,
+        "x": 0,
+        "y": 0
       }
     }
     ```
 
-- `POST /api/active-modules/` - Place a module at specific coordinates
+- `POST /api/active-modules/` - Create a new active module
 
-  - Required data:
+  - Required fields: `module`, `x`, `y`
+  - Optional fields: `data_center_component`, `data_center`
+  - Once created, only the position (x, y) can be changed
+  - Returns: Created active module details with full module information
+  - Example request:
     ```json
     {
-      "x": 10,
-      "y": 20,
       "module": 1,
-      "data_center_component": 1
+      "data_center_component": 1,
+      "x": 10,
+      "y": 20
     }
     ```
-  - Returns: Created active module details with full module information
   - Example response:
     ```json
     {
@@ -432,8 +624,9 @@ The backend API provides the following essential endpoints:
       "message": "Active module created successfully",
       "data": {
         "id": 1,
-        "x": 10,
-        "y": 20,
+        "point": {
+          "id": 1
+        },
         "module": 1,
         "data_center_component": 1,
         "module_details": {
@@ -463,6 +656,49 @@ The backend API provides the following essential endpoints:
     ```
   - Note: This endpoint only saves the module without validating constraints
 
+- `PATCH /api/active-modules/{id}/` - Update an active module's position
+
+  - Only `x` and `y` can be updated
+  - Other fields cannot be changed after creation
+  - Returns: Updated active module details
+  - Example response:
+    ```json
+    {
+      "status": "success",
+      "status_code": 200,
+      "message": "Active module updated successfully",
+      "data": {
+        "id": 1,
+        "x": 15,
+        "y": 25,
+        "module": 1,
+        "data_center_component": 1,
+        "module_details": {
+          "id": 1,
+          "name": "Transformer_100",
+          "attributes": {
+            "Grid_Connection": {
+              "amount": 1,
+              "is_input": true,
+              "is_output": false
+            },
+            "Space_X": {
+              "amount": 40,
+              "is_input": false,
+              "is_output": false
+            },
+            "Usable_Power": {
+              "amount": 100,
+              "is_input": false,
+              "is_output": true
+            }
+          }
+        },
+        "component_name": "Server_Square"
+      }
+    }
+    ```
+
 - `DELETE /api/active-modules/{id}/` - Remove a placed module
 
   - Returns: Success/failure status
@@ -473,19 +709,6 @@ The backend API provides the following essential endpoints:
       "message": "Active module deleted successfully"
     }
     ```
-
-### Data Center Points
-
-- `POST /api/datacenter-points/` - Add a data center point at specific coordinates
-
-  - Required data:
-    ```json
-    {
-      "x": 100,
-      "y": 200
-    }
-    ```
-  - Returns: Created data center point details
 
 ### Calculation and Validation
 

@@ -1,6 +1,6 @@
 from .models import (
     DataCenter, Module, ActiveModule, DataCenterValue, ModuleAttribute,
-    DataCenterComponent, DataCenterComponentAttribute
+    DataCenterComponent, DataCenterComponentAttribute, Point
 )
 from django.db.models import Sum, Q
 from django.db import transaction
@@ -43,8 +43,8 @@ class ModuleService:
 
 class ActiveModuleService:
     """
-    Service class for ActiveModule-related operations.
-    Provides methods to create, delete, and manage active modules in the data center.
+    Service class for active module operations.
+    Provides methods to create, retrieve, and manage active modules.
     """
     
     @staticmethod
@@ -103,56 +103,104 @@ class ActiveModuleService:
                 
         Returns:
             ActiveModule: The created ActiveModule object.
-            
-        Raises:
-            ValueError: If the module or component does not exist.
-            Exception: For any other errors during creation.
         """
         try:
-            # Extract and validate module
-            module_id = data.pop('module').id if isinstance(data.get('module'), Module) else data.pop('module')
-            module = Module.objects.get(id=module_id)
+            # Get module
+            module_id = data.get('module')
+            if isinstance(module_id, Module):
+                module = module_id
+            else:
+                module = Module.objects.get(id=module_id)
             
-            # Extract and validate component if provided
+            # Get component if provided
             component = None
-            if 'data_center_component' in data:
-                component_id = data.pop('data_center_component').id if isinstance(data.get('data_center_component'), DataCenterComponent) else data.pop('data_center_component')
-                if component_id:
+            component_id = data.get('data_center_component')
+            if component_id:
+                if isinstance(component_id, DataCenterComponent):
+                    component = component_id
+                else:
                     component = DataCenterComponent.objects.get(id=component_id)
-                    data['data_center_component'] = component
             
-            # Get data center from component or use default
+            # Get data center if provided or from component
             data_center = None
-            if component and component.data_center:
+            data_center_id = data.get('data_center')
+            if data_center_id:
+                if isinstance(data_center_id, DataCenter):
+                    data_center = data_center_id
+                else:
+                    data_center = DataCenter.objects.get(id=data_center_id)
+            elif component and component.data_center:
                 data_center = component.data_center
             else:
-                # Use default data center if none provided
                 data_center = DataCenter.get_default()
+            
+            # Create or get the point
+            x = data.get('x')
+            y = data.get('y')
+            if x is None or y is None:
+                raise ValueError("x and y coordinates are required")
                 
-            # If component is provided but no data center, update component
-            if component and not component.data_center:
-                component.data_center = data_center
-                component.save()
+            point, created = Point.objects.get_or_create(x=x, y=y)
             
-            for field in Module._meta.fields:
-                logger.info(f"Module {field.name}: {getattr(module, field.name)}")
-            
-            active_module = ActiveModule.objects.create(module=module, **data)
+            # Create the active module
+            active_module = ActiveModule.objects.create(
+                point=point,
+                module=module,
+                data_center_component=component,
+                data_center=data_center
+            )
             
             component_name = component.name if component else "No component"
             data_center_name = data_center.name if data_center else "No data center"
-            logger.info(f"Created active module ID={active_module.id}, Module={module.name}, Component={component_name}, DataCenter={data_center_name}, at ({data.get('x')}, {data.get('y')})")
+            logger.info(f"Created active module ID={active_module.id}, Module={module.name}, Component={component_name}, DataCenter={data_center_name}, at ({x}, {y})")
             
             return active_module
+            
         except Module.DoesNotExist:
-            logger.error(f"Module with ID {module_id} does not exist")
             raise ValueError(f"Module with ID {module_id} does not exist")
         except DataCenterComponent.DoesNotExist:
-            logger.error(f"DataCenterComponent with ID {component_id} does not exist")
             raise ValueError(f"DataCenterComponent with ID {component_id} does not exist")
+        except DataCenter.DoesNotExist:
+            raise ValueError(f"DataCenter with ID {data_center_id} does not exist")
         except Exception as e:
-            logger.error(f"Error in create_active_module: {str(e)}", exc_info=True)
+            logger.error(f"Error creating active module: {str(e)}", exc_info=True)
+            raise ValueError(f"Failed to create active module: {str(e)}")
+    
+    @staticmethod
+    def update_active_module_position(active_module_id, x, y):
+        """
+        Update only the position of an active module.
+        
+        Args:
+            active_module_id (int): The ID of the active module to update.
+            x (int): New X-coordinate.
+            y (int): New Y-coordinate.
+            
+        Returns:
+            ActiveModule: The updated ActiveModule object.
+            
+        Raises:
+            ActiveModule.DoesNotExist: If the active module does not exist.
+        """
+        try:
+            active_module = ActiveModule.objects.get(id=active_module_id)
+            
+            # Create or get the new point
+            point, created = Point.objects.get_or_create(x=x, y=y)
+            
+            # Update only the point
+            old_position = f"({active_module.point.x}, {active_module.point.y})"
+            active_module.point = point
+            active_module.save()
+            
+            logger.info(f"Updated active module ID={active_module_id} position from {old_position} to ({x}, {y})")
+            return active_module
+        except ActiveModule.DoesNotExist:
+            logger.error(f"ActiveModule with ID {active_module_id} does not exist")
             raise
+        except Exception as e:
+            logger.error(f"Error updating active module position: {str(e)}", exc_info=True)
+            raise ValueError(f"Failed to update active module position: {str(e)}")
     
     @staticmethod
     def delete_active_module(active_module_id):
