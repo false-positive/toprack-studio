@@ -197,3 +197,4 @@ Traceback (most recent call last):
                 ^^^^^^^^^^^^^^^
 NameError: name 'DataCenterSpecs' is not defined
 WARNING 2025-05-03 05:25:43,276 log Method Not Allowed: /api/validate-values/
+WARNING 2025-05-03 06:32:54,212 log Bad Request: /api/validate-component-values/

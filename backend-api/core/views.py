@@ -2,9 +2,16 @@ from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Module, ActiveModule, DataCenterSpecs, DataCenterValue, DataCenterPoints
-from .serializers import ModuleSerializer, ActiveModuleSerializer, DataCenterPointsSerializer
-from .services import ActiveModuleService, ModuleCalculationService, DataCenterValueService, DataCenterSpecsService, ModuleService
+from .models import Module, ActiveModule, DataCenterValue, DataCenterPoints, DataCenterComponent
+from .serializers import (
+    ModuleSerializer, ActiveModuleSerializer, DataCenterPointsSerializer,
+    DataCenterComponentSerializer
+)
+from .services import (
+    ActiveModuleService, ModuleCalculationService, 
+    DataCenterValueService, DataCenterComponentService, 
+    ModuleService
+)
 import logging
 
 logger = logging.getLogger('django')
@@ -106,68 +113,36 @@ def recalculate_values(request):
     DataCenterValueService.recalculate_all_values()
     
     # Validate after recalculation
-    validation_result = DataCenterSpecsService.validate_current_values()
+    validation_result, violations = DataCenterComponentService.validate_component_values()
     
     # Return a more structured response
     return Response({
         "status": "success",
         "status_code": status.HTTP_200_OK,
         "message": "Values recalculated successfully",
-        "validation_passed": validation_result
+        "validation_passed": validation_result,
+        "violations": violations if not validation_result else []
     })
-
-@api_view(['GET'])
-def validate_values(request):
-    """API endpoint to validate current DataCenterValues against specs"""
-    # Get all specs for logging
-    all_specs = DataCenterSpecs.objects.all()
-    specs_info = []
-    
-    for spec in all_specs:
-        constraint_type = []
-        if spec.below_amount == 1:
-            constraint_type.append(f"below {spec.amount}")
-        if spec.above_amount == 1:
-            constraint_type.append(f"above {spec.amount}")
-        if spec.minimize == 1:
-            constraint_type.append("minimize")
-        if spec.maximize == 1:
-            constraint_type.append("maximize")
-        if spec.unconstrained == 1:
-            constraint_type.append("unconstrained")
-            
-        specs_info.append({
-            "name": spec.name,
-            "unit": spec.unit,
-            "amount": spec.amount,
-            "constraints": constraint_type
-        })
-    
-    # Get all current values
-    all_values = {value.unit: value.value for value in DataCenterValue.objects.all()}
-    
-    # Perform validation
-    validation_result = DataCenterSpecsService.validate_current_values()
-    
-    if validation_result:
-        return Response({
-            "status": "All specifications validated successfully",
-            "specs": specs_info,
-            "current_values": all_values
-        })
-    else:
-        return Response({
-            "status": "Validation failed, see logs for details",
-            "specs": specs_info,
-            "current_values": all_values
-        }, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
 def initialize_values(request):
-    """API endpoint to initialize DataCenterValues from DataCenterSpecs"""
-    values = DataCenterValueService.initialize_values_from_specs()
+    """API endpoint to initialize DataCenterValues from components"""
+    values = DataCenterValueService.initialize_values_from_components()
     return Response({
-        "status": "Values initialized successfully",
+        "status": "success",
+        "status_code": status.HTTP_200_OK,
+        "message": "Values initialized successfully",
+        "count": len(values)
+    })
+
+@api_view(['POST'])
+def initialize_values_from_components(request):
+    """API endpoint to initialize DataCenterValues from DataCenterComponentAttributes"""
+    values = DataCenterValueService.initialize_values_from_components()
+    return Response({
+        "status": "success",
+        "status_code": status.HTTP_200_OK,
+        "message": "Values initialized successfully from components",
         "count": len(values)
     })
 
@@ -191,3 +166,86 @@ class DataCenterPointsViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         return serializer.save()
+
+class DataCenterComponentViewSet(viewsets.ModelViewSet):
+    queryset = DataCenterComponent.objects.all()
+    serializer_class = DataCenterComponentSerializer
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'status_code': status.HTTP_200_OK,
+            'message': 'Components retrieved successfully',
+            'data': serializer.data
+        })
+    
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response({
+            'status': 'success',
+            'status_code': status.HTTP_200_OK,
+            'message': 'Component retrieved successfully',
+            'data': serializer.data
+        })
+
+@api_view(['GET'])
+def validate_component_values(request, component_id=None):
+    """
+    API endpoint to validate data center values against component specifications.
+    
+    If component_id is provided, only that component's values will be validated.
+    Otherwise, all components will be validated.
+    
+    Returns:
+        Response: Validation status, component specifications, and current values.
+    """
+    # Get the component if ID is provided
+    component = None
+    if component_id:
+        try:
+            component = DataCenterComponent.objects.get(id=component_id)
+        except DataCenterComponent.DoesNotExist:
+            return Response({
+                "status": "error",
+                "status_code": status.HTTP_404_NOT_FOUND,
+                "message": f"Component with ID {component_id} not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Validate component values
+    validation_result, violations = DataCenterComponentService.validate_component_values(component)
+    
+    # Get component data for response
+    if component:
+        components = [component]
+    else:
+        components = DataCenterComponent.objects.all()
+    
+    component_serializer = DataCenterComponentSerializer(components, many=True)
+    
+    # Get current values for response
+    current_values = {}
+    for comp in components:
+        values = DataCenterValue.objects.filter(component=comp)
+        current_values[comp.name] = {value.unit: value.value for value in values}
+    
+    # Return response
+    if validation_result:
+        return Response({
+            "status": "success",
+            "status_code": status.HTTP_200_OK,
+            "message": "All specifications validated successfully",
+            "components": component_serializer.data,
+            "current_values": current_values
+        })
+    else:
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "message": "Some specifications are not met",
+            "components": component_serializer.data,
+            "current_values": current_values,
+            "violations": violations
+        }, status=status.HTTP_400_BAD_REQUEST)

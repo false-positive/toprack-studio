@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from core.models import Module, DataCenterSpecs, ModuleAttribute, DataCenterValue
+from core.models import Module, ModuleAttribute, DataCenterValue, DataCenterComponent, DataCenterComponentAttribute
 import csv
 import io
 from django.db import transaction
@@ -9,7 +9,7 @@ from backend.settings import DataCenterConstants
 logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
-    help = 'Import Modules and DataCenterSpecs from CSV files with auto delimiter detection'
+    help = 'Import Modules and DataCenterComponents from CSV files with auto delimiter detection'
 
     def add_arguments(self, parser):
         parser.add_argument('--no-clean', action='store_true', help='Do not clean database before import')
@@ -24,7 +24,7 @@ class Command(BaseCommand):
             self.clean_database()
         
         self.import_modules("Modules.csv")
-        self.import_specs("Data_Center_Spec.csv")
+        self.import_components("Data_Center_Spec.csv")
         
         if init_values:
             self.stdout.write("Initializing DataCenterValues...")
@@ -39,8 +39,11 @@ class Command(BaseCommand):
             self.stdout.write("Deleting all Module records...")
             Module.objects.all().delete()
             
-            self.stdout.write("Deleting all DataCenterSpecs records...")
-            DataCenterSpecs.objects.all().delete()
+            self.stdout.write("Deleting all DataCenterComponentAttribute records...")
+            DataCenterComponentAttribute.objects.all().delete()
+            
+            self.stdout.write("Deleting all DataCenterComponent records...")
+            DataCenterComponent.objects.all().delete()
             
             self.stdout.write("Deleting all DataCenterValue records...")
             DataCenterValue.objects.all().delete()
@@ -50,16 +53,40 @@ class Command(BaseCommand):
             self.stderr.write(f"Error cleaning database: {e}")
 
     def detect_delimiter_and_read(self, file_obj):
-        """
-        Detect whether delimiter is semicolon or tab, return a csv.DictReader.
-        """
-        sample = file_obj.read().decode('utf-8-sig')
+        """Detect delimiter in CSV file and return a DictReader"""
+        # Read a sample of the file to detect the delimiter
+        sample = file_obj.read(4096)
+        
+        # Try to decode the sample
+        try:
+            sample_text = sample.decode('utf-8')
+        except UnicodeDecodeError:
+            # If UTF-8 fails, try another common encoding
+            sample_text = sample.decode('latin-1')
+        
+        # Count occurrences of common delimiters
+        delimiters = [',', ';', '\t', '|']
+        counts = {d: sample_text.count(d) for d in delimiters}
+        
+        # Choose the delimiter with the highest count
+        delimiter = max(counts.items(), key=lambda x: x[1])[0]
+        
+        # Reset file pointer to the beginning
         file_obj.seek(0)
-
-        header_line = sample.splitlines()[0]
-        delimiter = ';' if header_line.count(';') > header_line.count('\t') else '\t'
-
-        return csv.DictReader(io.StringIO(sample), delimiter=delimiter)
+        
+        # Try to decode the entire file
+        try:
+            text = file_obj.read().decode('utf-8')
+        except UnicodeDecodeError:
+            # If UTF-8 fails, try another common encoding
+            file_obj.seek(0)
+            text = file_obj.read().decode('latin-1')
+        
+        # Create a CSV reader with the detected delimiter
+        reader = csv.DictReader(io.StringIO(text), delimiter=delimiter)
+        
+        self.stdout.write(f"Detected delimiter: '{delimiter}'")
+        return reader
 
     @transaction.atomic
     def import_modules(self, path):
@@ -67,128 +94,103 @@ class Command(BaseCommand):
             with open(path, 'rb') as f:
                 reader = self.detect_delimiter_and_read(f)
                 
-                modules_by_id = {}
-                for row in reader:
-                    module_id = int(row['ID'])
-                    if module_id not in modules_by_id:
-                        modules_by_id[module_id] = {
-                            'name': row['Name'],
-                            'attributes': []
-                        }
-                    
-                    modules_by_id[module_id]['attributes'].append({
-                        'unit': row['Unit'],
-                        'amount': int(row['Amount']),
-                        'is_input': bool(int(row['Is_Input'])),
-                        'is_output': bool(int(row['Is_Output']))
-                    })
+                # Create a dictionary to store modules
+                modules = {}
                 
-                # Create modules and their attributes
-                for module_id, module_data in modules_by_id.items():
-                    # Create the module
-                    module = Module.objects.create(
-                        name=module_data['name']
+                # First pass: Create all modules
+                for row in reader:
+                    module_name = row['Name']
+                    
+                    # Create module if it doesn't exist
+                    if module_name not in modules:
+                        module, created = Module.objects.get_or_create(name=module_name)
+                        modules[module_name] = module
+                        
+                        if created:
+                            self.stdout.write(f"Created module: {module_name}")
+                
+                # Reset file and reader for second pass
+                f.seek(0)
+                reader = self.detect_delimiter_and_read(f)
+                
+                # Second pass: Create all module attributes
+                count = 0
+                for row in reader:
+                    module_name = row['Name']
+                    module = modules[module_name]
+                    
+                    # Create module attribute
+                    ModuleAttribute.objects.create(
+                        module=module,
+                        unit=row['Unit'],
+                        amount=int(row['Amount']),
+                        is_input=int(row['Is_Input']) == 1,
+                        is_output=int(row['Is_Output']) == 1
                     )
-                    
-                    # Create all attributes for this module
-                    for attr in module_data['attributes']:
-                        ModuleAttribute.objects.create(
-                            module=module,
-                            unit=attr['unit'],
-                            amount=attr['amount'],
-                            is_input=attr['is_input'],
-                            is_output=attr['is_output']
-                        )
-                    
-                    self.stdout.write(f"Created module {module.name} with {len(module_data['attributes'])} attributes")
-
-                self.stdout.write(self.style.SUCCESS(f"Imported {len(modules_by_id)} modules from {path}"))
+                    count += 1
+                
+                self.stdout.write(self.style.SUCCESS(f"Imported {len(modules)} modules with {count} attributes from {path}"))
         except Exception as e:
-            self.stderr.write(f"Failed to import Modules: {e}")
+            self.stderr.write(f"Failed to import modules: {e}")
             raise
 
     @transaction.atomic
-    def import_specs(self, path):
+    def import_components(self, path):
         try:
             with open(path, 'rb') as f:
                 reader = self.detect_delimiter_and_read(f)
 
+                # Create a dictionary to store components
+                components = {}
+                
+                # First pass: Create all components
+                for row in reader:
+                    component_name = row['Name']
+                    
+                    # Create component if it doesn't exist
+                    if component_name not in components:
+                        component, created = DataCenterComponent.objects.get_or_create(name=component_name)
+                        components[component_name] = component
+                        
+                        if created:
+                            self.stdout.write(f"Created component: {component_name}")
+                
+                # Reset file and reader for second pass
+                f.seek(0)
+                reader = self.detect_delimiter_and_read(f)
+                
+                # Second pass: Create all component attributes
                 count = 0
                 for row in reader:
-                    DataCenterSpecs.objects.create(
-                        name=row['Name'],
+                    component_name = row['Name']
+                    component = components[component_name]
+                    
+                    # Create component attribute
+                    DataCenterComponentAttribute.objects.create(
+                        component=component,
+                        unit=row['Unit'],
+                        amount=int(row['Amount']),
                         below_amount=int(row['Below_Amount']),
                         above_amount=int(row['Above_Amount']),
                         minimize=int(row['Minimize']),
                         maximize=int(row['Maximize']),
-                        unconstrained=int(row['Unconstrained']),
-                        unit=row['Unit'],
-                        amount=int(row['Amount'])
+                        unconstrained=int(row['Unconstrained'])
                     )
                     count += 1
 
-                self.stdout.write(self.style.SUCCESS(f"Imported {count} DataCenterSpecs from {path}"))
+                self.stdout.write(self.style.SUCCESS(f"Imported {len(components)} components with {count} attributes from {path}"))
         except Exception as e:
-            self.stderr.write(f"Failed to import DataCenterSpecs: {e}")
+            self.stderr.write(f"Failed to import components: {e}")
             raise
 
     @transaction.atomic
     def initialize_values(self):
-        """Initialize DataCenterValue objects from DataCenterSpecs"""
+        """Initialize DataCenterValue objects from DataCenterComponentAttributes"""
         try:
-            # Get unique units from DataCenterSpecs
-            unique_units = set(DataCenterSpecs.objects.values_list('unit', flat=True).distinct())
-            self.stdout.write(f"Found {len(unique_units)} unique units in specs")
+            from core.services import DataCenterValueService
             
-            # Get all specs to determine initial values
-            all_specs = DataCenterSpecs.objects.all()
-            
-            # Create a dictionary to store initial values for each unit
-            initial_values = {}
-            
-            # Special handling for Space_X and Space_Y if they exist in specs
-            if 'Space_X' in unique_units:
-                initial_values['Space_X'] = DataCenterConstants.SPACE_X_INITIAL
-            if 'Space_Y' in unique_units:
-                initial_values['Space_Y'] = DataCenterConstants.SPACE_Y_INITIAL
-            
-            # Determine initial values based on constraints
-            for unit in unique_units:
-                # Default to 0 if not already set
-                if unit not in initial_values:
-                    initial_values[unit] = 0
-                
-                # Find specs for this unit
-                unit_specs = all_specs.filter(unit=unit)
-                
-                for spec in unit_specs:
-                    # For Price, set to 0 initially
-                    if unit == 'Price':
-                        initial_values[unit] = 0
-                        continue
-                        
-                    # If there's an above_amount constraint, set value to 0 (needs to be increased)
-                    if spec.above_amount == 1 and spec.amount > 0 and unit not in ['Space_X', 'Space_Y']:
-                        # For "above" constraints, start at 0 to force adding modules
-                        initial_values[unit] = 0
-            
-            # Create or update DataCenterValue for each unit
-            for unit, value in initial_values.items():
-                value_obj, created = DataCenterValue.objects.get_or_create(
-                    unit=unit,
-                    defaults={'value': value}
-                )
-                
-                if not created:
-                    value_obj.value = value
-                    value_obj.save()
-                
-                action = "Created" if created else "Updated"
-                self.stdout.write(f"{action} DataCenterValue for {unit}: {value}")
-            
-            self.stdout.write(self.style.SUCCESS(f"Initialized {len(initial_values)} DataCenterValues"))
-            
-            return DataCenterValue.objects.all()
+            values = DataCenterValueService.initialize_values_from_components()
+            self.stdout.write(self.style.SUCCESS(f"Initialized {len(values)} DataCenterValues"))
         except Exception as e:
-            self.stderr.write(f"Failed to initialize DataCenterValues: {e}")
+            self.stderr.write(f"Failed to initialize values: {e}")
             raise
