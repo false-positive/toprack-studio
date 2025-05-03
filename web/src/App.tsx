@@ -199,7 +199,7 @@ function App() {
       </div>
       <DragOverlay>
         {activeModuleId ? (
-          <div className="bg-black/30 rounded-lg p-2">
+          <div className="opacity-80">
             {(() => {
               const module = loadedModules.find((m) => m.id === activeModuleId);
               return module ? (
