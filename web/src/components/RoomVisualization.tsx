@@ -1,11 +1,11 @@
-import { useEffect } from "react";
-import { MapContainer, Polyline, useMap, Rectangle } from "react-leaflet";
+import { useDroppable } from "@dnd-kit/core";
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import { useEffect } from "react";
+import { MapContainer, Polyline, useMap } from "react-leaflet";
 import type { ActiveModule, Module } from "../../types";
 import PlacedModule from "./PlacedModule";
 import WallDimensions from "./WallDimensions";
-import "leaflet/dist/leaflet.css";
-import { useDroppable } from "@dnd-kit/core";
 
 interface RoomVisualizationProps {
   roomDimensions: {
@@ -13,17 +13,9 @@ interface RoomVisualizationProps {
     height: number;
     walls: Array<{ start: [number, number]; end: [number, number] }>;
   };
-  placedModules: Array<{
-    id: string;
-    moduleId: string;
-    position: [number, number];
-    rotation: number;
-  }>;
   modules: Module[];
-  onModuleRemoved: (id: string) => void;
-  onModuleRotated: (id: string) => void;
   mapRef: React.MutableRefObject<L.Map | null>;
-  TEMPORARY_REMOVE_SOON_activeModules: Array<ActiveModule>;
+  activeModules: Array<ActiveModule>;
 }
 
 // Component to handle map events and interactions
@@ -48,9 +40,7 @@ function MapEventHandler() {
 
 export default function RoomVisualization({
   roomDimensions,
-  onModuleRemoved,
-  onModuleRotated,
-  TEMPORARY_REMOVE_SOON_activeModules,
+  activeModules,
   mapRef,
 }: RoomVisualizationProps) {
   const { setNodeRef } = useDroppable({
@@ -110,7 +100,7 @@ export default function RoomVisualization({
         <WallDimensions walls={roomDimensions.walls} />
 
         {/* Placed modules */}
-        {TEMPORARY_REMOVE_SOON_activeModules.map((activeModule) => {
+        {activeModules.map((activeModule) => {
           return (
             <PlacedModule key={activeModule.id} activeModule={activeModule} />
           );

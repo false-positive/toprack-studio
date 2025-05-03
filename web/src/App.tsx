@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
-import { fetchModules } from "./data/modules";
+import { fetchActiveModules, fetchModules } from "./data/modules";
 import { Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -22,7 +22,7 @@ import L from "leaflet";
 import { ActiveModule } from "types";
 
 function App() {
-  const { data: loadedModules = [], isLoading: loading } = useQuery({
+  const { data: loadedModules = [], isLoading: modulesLoading } = useQuery({
     queryKey: ["modules"],
     queryFn: fetchModules,
   });
@@ -44,6 +44,11 @@ function App() {
 
   const mapRef = useRef<L.Map | null>(null);
   const lastMousePosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const { data: activeModules } = useQuery({
+    queryKey: ["activeModules"],
+    queryFn: () => fetchActiveModules(),
+  });
 
   const [
     TEMPORARY_REMOVE_SOON_activeModules,
@@ -72,7 +77,7 @@ function App() {
     return matchesSearch && matchesType;
   });
 
-  if (loading) {
+  if (modulesLoading || !activeModules) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
@@ -142,9 +147,7 @@ function App() {
                 roomDimensions={roomDimensions}
                 modules={loadedModules}
                 mapRef={mapRef}
-                TEMPORARY_REMOVE_SOON_activeModules={
-                  TEMPORARY_REMOVE_SOON_activeModules
-                }
+                activeModules={activeModules}
               />
             </div>
             {/* <ModuleCard
