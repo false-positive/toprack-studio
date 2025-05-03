@@ -201,5 +201,6 @@ REST_FRAMEWORK = {
 # Data Center Configuration Constants
 class DataCenterConstants:
     """Constants for data center configuration"""
-    SPACE_X_INITIAL = 1000  # Total available space in X dimension
-    SPACE_Y_INITIAL = 500   # Total available space in Y dimension
+    # THIS IS DEFAULT, IT SHALL BE OVERWRITTEN BY ENDPOINT
+    SPACE_X_INITIAL = 0  # Total available space in X dimension
+    SPACE_Y_INITIAL = 0   # Total available space in Y dimension
