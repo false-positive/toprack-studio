@@ -1,9 +1,13 @@
-import { useState, useRef, useEffect } from "react";
-import ModuleLibrary from "./components/ModuleLibrary";
-import RoomVisualization from "./components/RoomVisualization";
-import { fetchActiveModules, fetchModules } from "./data/modules";
-import { Sparkles } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
   Popover,
@@ -20,7 +24,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import L from "leaflet";
@@ -40,48 +44,13 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, Route, Routes, useNavigate, useParams } from "react-router";
+import LLogo from "./components/LLogo";
 import ModuleCard from "./components/ModuleCard";
 import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
-import {
-  fetchActiveModules,
-  fetchModules,
-  addActiveModuleFake,
-} from "./data/modules";
 import Toolbar from "./components/Toolbar";
-import { Route, Routes, Link, useNavigate, data } from "react-router";
-import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-} from "@/components/ui/popover";
-import { CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Pencil,
-  Plus,
-  Trash2,
-  MoreVertical,
-  FileText,
-  BookOpen,
-  Settings,
-  ChevronDown,
-  ChevronUp,
-  UploadCloud,
-  ScanLine,
-} from "lucide-react";
-import { useAtom } from "jotai";
-import { atomWithStorage } from "jotai/utils";
-import { useParams } from "react-router";
-import LLogo from "./components/LLogo";
+import { fetchActiveModules, fetchModules } from "./data/modules";
+import { Input } from "./components/ui/input";
 
 // Project type
 interface Project {
@@ -869,7 +838,7 @@ function EditorPage() {
                 roomDimensions={roomDimensions}
                 modules={loadedModules}
                 mapRef={mapRef}
-                activeModules={activeModules}
+                activeModules={activeModules.data}
               />
             </div>
             <aside className="w-80 max-w-xs border-l border-border bg-card/90 h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6">
