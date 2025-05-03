@@ -70,7 +70,6 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
         """List all active modules with detailed information"""
         queryset = self.filter_queryset(self.get_queryset())
         
-        # Get data center parameter if provided
         data_center_id = request.query_params.get('data_center', None)
         if data_center_id:
             try:
@@ -139,21 +138,17 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
                     "message": "x and y coordinates are required"
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Create the active module using the service
             data = request.data.copy()
             active_module = ActiveModuleService.create_active_module(data)
             
-            # Get the data center for recalculation
             data_center = None
             if active_module.data_center_component and active_module.data_center_component.data_center:
                 data_center = active_module.data_center_component.data_center
             else:
                 data_center = DataCenter.get_default()
             
-            # Recalculate values after adding a module
             DataCenterValueService.recalculate_all_values(data_center)
             
-            # Serialize the result
             serializer = self.get_serializer(active_module)
             headers = self.get_success_headers(serializer.data)
             
@@ -173,10 +168,8 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         """Update the position of an active module"""
         try:
-            # Get the active module
             instance = self.get_object()
             
-            # Extract x and y from request data
             x = request.data.get('x')
             y = request.data.get('y')
             
@@ -187,7 +180,6 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
                     "message": "x and y coordinates are required"
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Check if other fields are being updated
             for field in request.data:
                 if field not in ['x', 'y']:
                     return Response({
@@ -196,24 +188,19 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
                         "message": f"Cannot update field '{field}'. Only position (x, y) can be updated."
                     }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Create or get a Point object
             point, created = Point.objects.get_or_create(x=x, y=y)
             
-            # Update the active module's point
             instance.point = point
             instance.save()
             
-            # Get the data center for recalculation
             data_center = None
             if instance.data_center_component and instance.data_center_component.data_center:
                 data_center = instance.data_center_component.data_center
             else:
                 data_center = DataCenter.get_default()
             
-            # Recalculate values after moving a module
             DataCenterValueService.recalculate_all_values(data_center)
             
-            # Serialize the result
             serializer = self.get_serializer(instance)
             
             return Response({
@@ -244,12 +231,8 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 def calculate_resources(request):
     """API endpoint to calculate resource usage and validate"""
-    # Get the data center (use default if not specified)
-    from core.models import DataCenter  # Add local import to ensure it's available
-    
     data_center = DataCenter.get_default()
     
-    # First recalculate all values
     DataCenterValueService.recalculate_all_values(data_center)
     
     # Then get active modules and calculate resources
@@ -285,9 +268,6 @@ def calculate_resources(request):
 @api_view(['POST'])
 def recalculate_values(request):
     """API endpoint to recalculate all DataCenterValues and validate"""
-    # Get the data center (use default if not specified)
-    from core.models import DataCenter  # Add local import to ensure it's available
-    
     data_center = DataCenter.get_default()
     
     # Recalculate values
@@ -337,8 +317,8 @@ def create_data_center(request):
         sys.stdout = stdout
         sys.stderr = stderr
         
-        # Import directly from memory
-        from core.models import Module, ModuleAttribute, DataCenterComponent, DataCenterComponentAttribute, DataCenter
+        # Import directly from memory - remove DataCenter from this import
+        from core.models import Module, ModuleAttribute, DataCenterComponent, DataCenterComponentAttribute
         from core.services import DataCenterValueService
         import csv
         
@@ -600,9 +580,6 @@ class DataCenterComponentViewSet(viewsets.ModelViewSet):
 @api_view(['GET', 'POST'])
 def validate_component_values(request, component_id=None):
     """API endpoint to validate DataCenterValues against component specifications"""
-    # Get the data center (use default if not specified)
-    from core.models import DataCenter  # Add local import to ensure it's available
-    
     data_center = DataCenter.get_default()
     
     # Get the component if specified
