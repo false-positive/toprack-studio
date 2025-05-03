@@ -24,46 +24,236 @@ This project uses `uv` for Python dependency management. To set up the project:
 
 ## Data Models
 
-The backend is built around these core data models:
+The backend uses the following data models to represent the data center configuration:
 
-- **Module**: Base building blocks (transformers, servers, storage units, etc.)
+### Module
 
-  - Has attributes (inputs/outputs like power, storage, processing)
+Represents a building block that can be placed in the data center.
 
-- **ActiveModule**: Placed modules in the data center
+- **Fields**:
+  - `name`: Name of the module (e.g., "Transformer_100", "Server_Rack")
 
-  - References a Module
-  - Has x,y coordinates
-  - Belongs to a DataCenterComponent
+### ModuleAttribute
 
-- **DataCenterComponent**: Logical sections of the data center (Server_Square, Dense_Storage, etc.)
+Defines the properties of a module, including resources it consumes or produces.
 
-  - Has constraints/specifications
+- **Fields**:
+  - `module`: Foreign key to Module
+  - `unit`: Type of resource (e.g., "Space_X", "Processing", "Usable_Power")
+  - `amount`: Quantity of the resource
+  - `is_input`: Whether this resource is consumed by the module
+  - `is_output`: Whether this resource is produced by the module
 
-- **DataCenterComponentAttribute**: Constraints for components
+### DataCenterComponent
 
-  - below_amount: Must be below this value
-  - above_amount: Must be above this value
-  - minimize/maximize: Optimization goals
+Represents a logical section of the data center (e.g., "Server_Square", "Dense_Storage").
 
-- **DataCenterValue**: Current values for each unit in each component
-  - Tracks current totals (Space_X, Space_Y, Data_Storage, etc.)
+- **Fields**:
+  - `name`: Name of the component
 
-## API Workflow
+### DataCenterComponentAttribute
 
-The typical workflow for using this API is:
+Defines constraints and specifications for a data center component.
 
-1. Initialize values from component specifications
-2. List available modules and components
-3. Place modules in components at specific coordinates
-4. Recalculate values based on placed modules
-5. Validate that all constraints are met
-6. Adjust module placement as needed
-7. Recalculate and validate again
+- **Fields**:
+  - `component`: Foreign key to DataCenterComponent
+  - `unit`: Type of resource (e.g., "Space_X", "Processing")
+  - `amount`: Base amount of the resource
+  - `below_amount`: Whether the value must be below this amount (0 or 1)
+  - `above_amount`: Whether the value must be above this amount (0 or 1)
+  - `minimize`: Whether this value should be minimized (0 or 1)
+  - `maximize`: Whether this value should be maximized (0 or 1)
+  - `unconstrained`: Whether this value has no constraints (0 or 1)
+
+### ActiveModule
+
+Represents a module placed at specific coordinates in the data center.
+
+- **Fields**:
+  - `module`: Foreign key to Module
+  - `data_center_component`: Foreign key to DataCenterComponent
+  - `x`: X-coordinate position
+  - `y`: Y-coordinate position
+
+### DataCenterValue
+
+Tracks the current value of a resource for a component.
+
+- **Fields**:
+  - `component`: Foreign key to DataCenterComponent (null for global values)
+  - `unit`: Type of resource
+  - `value`: Current value of the resource
+
+### DataCenterPoints
+
+Represents coordinate points in the data center.
+
+- **Fields**:
+  - `x`: X-coordinate
+  - `y`: Y-coordinate
+
+## Model Relationships and Logic
+
+1. **Modules and Attributes**:
+
+   - Each `Module` has multiple `ModuleAttribute` records
+   - Attributes define what resources a module consumes (`is_input=True`) or produces (`is_output=True`)
+   - Example: A transformer module might consume Grid_Connection and produce Usable_Power
+
+2. **Components and Constraints**:
+
+   - Each `DataCenterComponent` has multiple `DataCenterComponentAttribute` records
+   - These attributes define constraints (minimum/maximum values) for different resources
+   - Example: Server_Square might require Processing > 1000 and Space_X < 1000
+
+3. **Active Modules**:
+
+   - When a module is placed, an `ActiveModule` record is created
+   - It references both the module type and the component it's placed in
+   - The coordinates determine its position in the data center
+
+4. **Resource Calculation**:
+
+   - `DataCenterValue` records track the current value of each resource
+   - When modules are added/removed, these values are recalculated
+   - For each component, the system:
+     - Adds up all resources produced by modules in that component
+     - Subtracts all resources consumed by modules in that component
+     - Checks if the resulting values meet the component's constraints
+
+5. **Validation Logic**:
+
+   - For each component, the system checks:
+     - `below_amount=1`: Value must be less than the specified amount
+     - `above_amount=1`: Value must be greater than the specified amount
+     - `minimize=1`: Value should be minimized (optimization goal)
+     - `maximize=1`: Value should be maximized (optimization goal)
+   - If any constraint is violated, validation fails
+
+6. **Special Resources**:
+   - `Space_X/Space_Y`: Represent available space (decreases as modules are added)
+   - `Price`: Represents total cost (increases as modules are added)
+   - `Processing/Data_Storage`: Represent capacity (increases as modules are added)
+   - `Grid_Connection/Water_Connection`: Represent resource connections
+
+## API Usage Flow
+
+### Initial Setup
+
+When first setting up the application, follow these steps:
+
+1. **Initialize Values**:
+
+   ```
+   POST /api/initialize-values-from-components/
+   ```
+
+   This creates initial DataCenterValue objects based on component constraints.
+
+2. **Load Available Modules**:
+
+   ```
+   GET /api/modules/
+   ```
+
+   This retrieves all module types that can be placed in the data center.
+
+3. **Load Data Center Components**:
+   ```
+   GET /api/datacenter-components/
+   ```
+   This retrieves all data center components and their constraints.
+
+**^ You need info from 2 and 3 to create active modules**
+
+### User Interaction Flow
+
+After initial setup, the typical user interaction flow is:
+
+1. **Place a Module**:
+
+   ```
+   POST /api/active-modules/
+   ```
+
+   This places a module at specific coordinates in a component.
+
+2. **Calculate Resources and Validate**:
+
+   ```
+   GET /api/calculate-resources/
+   ```
+
+   This calculates resource totals and validates the configuration.
+
+3. **View Detailed Validation (if needed)**:
+
+   ```
+   GET /api/validate-component-values/
+   ```
+
+   This provides detailed validation information if there are issues.
+
+4. **Remove a Module (if needed)**:
+
+   ```
+   DELETE /api/active-modules/{id}/
+   ```
+
+   This removes a previously placed module.
+
+5. **Recalculate Resources After Changes**:
+   ```
+   GET /api/calculate-resources/
+   ```
+   This updates resource totals and validation status after changes.
+
+### Complete Workflow Example
+
+1. **Initial Setup**:
+
+   - Initialize values: `POST /api/initialize-values-from-components/`
+   - Get available modules: `GET /api/modules/`
+   - Get data center components: `GET /api/datacenter-components/`
+
+2. **User Places Modules**:
+
+   - Place a transformer: `POST /api/active-modules/` (with transformer module data)
+   - Check validation: `GET /api/calculate-resources/`
+   - Place a server rack: `POST /api/active-modules/` (with server rack module data)
+   - Check validation: `GET /api/calculate-resources/`
+
+3. **User Fixes Validation Issues**:
+
+   - Get detailed validation: `GET /api/validate-component-values/`
+   - Remove problematic module: `DELETE /api/active-modules/{id}/`
+   - Place different module: `POST /api/active-modules/` (with new module data)
+   - Check validation: `GET /api/calculate-resources/`
+
+4. **Final Configuration**:
+   - Get all active modules: `GET /api/active-modules/`
+   - Get final resource totals: `GET /api/calculate-resources/`
+
+### Choosing Between Validation Endpoints
+
+When validating your data center configuration, you have two main options:
+
+- **`GET /api/calculate-resources/`**: Use for quick validation and resource totals
+
+  - Recalculates all values and provides updated resource totals
+  - Returns a simple validation status (pass/fail) with basic violation messages
+  - Best for regular checks after placing/removing modules
+
+- **`GET /api/validate-component-values/`**: Use for detailed validation information
+  - Provides comprehensive information about component constraints and current values
+  - Returns detailed violation information with component context
+  - Best for troubleshooting when validation fails or understanding specific requirements
+
+For most operations, start with `calculate-resources` and only use `validate-component-values` when you need detailed diagnostic information.
 
 ## API Endpoints
 
-The backend API provides the following endpoints:
+The backend API provides the following essential endpoints:
 
 ### Modules
 
@@ -72,44 +262,37 @@ The backend API provides the following endpoints:
   - Returns: List of all modules with their properties and attributes
   - Example response:
     ```json
-    [
-      {
-        "id": 1,
-        "name": "Transformer_100",
-        "attributes": [
-          {
-            "unit": "Grid_Connection",
-            "amount": 1,
-            "is_input": true,
-            "is_output": false
-          },
-          {
-            "unit": "Space_X",
-            "amount": 40,
-            "is_input": false,
-            "is_output": false
-          },
-          {
-            "unit": "Space_Y",
-            "amount": 45,
-            "is_input": false,
-            "is_output": false
-          },
-          {
-            "unit": "Price",
-            "amount": 1000,
-            "is_input": false,
-            "is_output": false
-          },
-          {
-            "unit": "Usable_Power",
-            "amount": 100,
-            "is_input": false,
-            "is_output": true
-          }
-        ]
-      }
-    ]
+    {
+      "status": "success",
+      "status_code": 200,
+      "message": "Modules retrieved successfully",
+      "data": [
+        {
+          "id": 1,
+          "name": "Transformer_100",
+          "attributes": [
+            {
+              "unit": "Grid_Connection",
+              "amount": 1,
+              "is_input": true,
+              "is_output": false
+            },
+            {
+              "unit": "Space_X",
+              "amount": 40,
+              "is_input": false,
+              "is_output": false
+            },
+            {
+              "unit": "Usable_Power",
+              "amount": 100,
+              "is_input": false,
+              "is_output": true
+            }
+          ]
+        }
+      ]
+    }
     ```
 
 ### Data Center Components
@@ -119,44 +302,58 @@ The backend API provides the following endpoints:
   - Returns: List of all components with their constraints
   - Example response:
     ```json
-    [
-      {
-        "id": 1,
-        "name": "Server_Square",
-        "attributes": [
-          {
-            "unit": "Space_X",
-            "amount": 1000,
-            "below_amount": 1,
-            "above_amount": 0,
-            "minimize": 0,
-            "maximize": 0,
-            "unconstrained": 0
-          },
-          {
-            "unit": "Space_Y",
-            "amount": 500,
-            "below_amount": 1,
-            "above_amount": 0,
-            "minimize": 0,
-            "maximize": 0,
-            "unconstrained": 0
-          },
-          {
-            "unit": "Data_Storage",
-            "amount": 1000,
-            "below_amount": 0,
-            "above_amount": 1,
-            "minimize": 0,
-            "maximize": 0,
-            "unconstrained": 0
-          }
-        ]
-      }
-    ]
+    {
+      "status": "success",
+      "status_code": 200,
+      "message": "Components retrieved successfully",
+      "data": [
+        {
+          "id": 1,
+          "name": "Server_Square",
+          "attributes": [
+            {
+              "unit": "Space_X",
+              "amount": 1000,
+              "below_amount": 1,
+              "above_amount": 0,
+              "minimize": 0,
+              "maximize": 0,
+              "unconstrained": 0
+            },
+            {
+              "unit": "Processing",
+              "amount": 1000,
+              "below_amount": 0,
+              "above_amount": 1,
+              "minimize": 0,
+              "maximize": 0,
+              "unconstrained": 0
+            }
+          ]
+        }
+      ]
+    }
     ```
 
 ### Active Modules
+
+- `GET /api/active-modules/` - List all placed modules
+
+  - Returns: List of all active modules
+  - Example response:
+    ```json
+    {
+      "active_modules": [
+        {
+          "id": 1,
+          "x": 10,
+          "y": 20,
+          "module": 1,
+          "data_center_component": 1
+        }
+      ]
+    }
+    ```
 
 - `POST /api/active-modules/` - Place a module at specific coordinates
 
@@ -170,14 +367,28 @@ The backend API provides the following endpoints:
     }
     ```
   - Returns: Created active module details
-
-- `GET /api/active-modules/` - List all placed modules
-
-  - Returns: List of all active modules with their positions and related data
+  - Example response:
+    ```json
+    {
+      "id": 1,
+      "x": 10,
+      "y": 20,
+      "module": 1,
+      "data_center_component": 1
+    }
+    ```
+  - Note: This endpoint only saves the module without validating constraints
 
 - `DELETE /api/active-modules/{id}/` - Remove a placed module
 
   - Returns: Success/failure status
+  - Example response:
+    ```json
+    {
+      "status": "success",
+      "message": "Active module deleted successfully"
+    }
+    ```
 
 ### Data Center Points
 
@@ -194,11 +405,12 @@ The backend API provides the following endpoints:
 
 ### Calculation and Validation
 
-- `GET /api/calculate-resources/` - Calculate total resource usage
+- `GET /api/calculate-resources/` - Calculate total resource usage and validate
 
-  - Returns: Calculated totals for each resource type
-  - Does not update database values
-  - Example response:
+  - Recalculates all DataCenterValue objects
+  - Validates against component constraints
+  - Returns: Calculated totals with validation status
+  - Example response (valid configuration):
     ```json
     {
       "status": "success",
@@ -209,29 +421,33 @@ The backend API provides the following endpoints:
         "Space_Y": 400,
         "Data_Storage": 1200,
         "Price": 50000
-      }
+      },
+      "validation_passed": true,
+      "violations": []
     }
     ```
-
-- `POST /api/recalculate-values/` - Recalculate all data center values and validate
-
-  - Updates DataCenterValue objects based on placed modules
-  - Validates updated values against constraints
-  - Returns: Recalculation status and validation result
-  - Example response:
+  - Example response (invalid configuration):
     ```json
     {
       "status": "success",
       "status_code": 200,
-      "message": "Values recalculated successfully",
-      "validation_passed": true,
-      "violations": []
+      "message": "Resources calculated successfully",
+      "data": {
+        "Space_X": 920,
+        "Space_Y": 420,
+        "Usable_Power": -80,
+        "Processing": 0
+      },
+      "validation_passed": false,
+      "violations": [
+        "Component Server_Square, Unit Processing value (0) is below minimum required (1000)"
+      ]
     }
     ```
 
 - `GET /api/validate-component-values/` - Validate current data center values
 
-  - Returns: Validation status, specifications, and current values
+  - Returns: Detailed validation status, specifications, and current values
   - Example success response:
     ```json
     {
@@ -247,7 +463,10 @@ The backend API provides the following endpoints:
               "unit": "Space_X",
               "amount": 1000,
               "below_amount": 1,
-              "above_amount": 0
+              "above_amount": 0,
+              "minimize": 0,
+              "maximize": 0,
+              "unconstrained": 0
             }
           ]
         }
@@ -258,13 +477,48 @@ The backend API provides the following endpoints:
           "Space_Y": 400,
           "Data_Storage": 1200
         }
-      }
+      },
+      "violations": []
+    }
+    ```
+  - Example failure response:
+    ```json
+    {
+      "status": "error",
+      "status_code": 400,
+      "message": "Some specifications are not met",
+      "components": [
+        {
+          "id": 1,
+          "name": "Server_Square",
+          "attributes": [
+            {
+              "unit": "Processing",
+              "amount": 1000,
+              "below_amount": 0,
+              "above_amount": 1,
+              "minimize": 0,
+              "maximize": 0,
+              "unconstrained": 0
+            }
+          ]
+        }
+      ],
+      "current_values": {
+        "Server_Square": {
+          "Processing": 0
+        }
+      },
+      "violations": [
+        "Component Server_Square, Unit Processing value (0) is below minimum required (1000)"
+      ]
     }
     ```
 
 - `GET /api/validate-component-values/{component_id}/` - Validate specific component
 
   - Returns: Validation status for the specified component only
+  - Example response format is the same as above but limited to the specified component
 
 ### Initialization
 

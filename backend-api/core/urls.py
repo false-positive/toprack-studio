@@ -15,7 +15,7 @@ router.register(r'datacenter-components', DataCenterComponentViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('calculate-resources/', calculate_resources, name='calculate-resources'),
+    path('calculate-resources/', calculate_resources, name='calculate-resources'), 
     path('recalculate-values/', recalculate_values, name='recalculate-values'),
     path('initialize-values/', initialize_values, name='initialize-values'),
     path('initialize-values-from-components/', initialize_values_from_components, name='initialize-values-from-components'),

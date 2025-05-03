@@ -125,8 +125,6 @@ class ActiveModuleService:
             component_name = component.name if component else "No component"
             logger.info(f"Created active module ID={active_module.id}, Module={module.name}, Component={component_name}, at ({data.get('x')}, {data.get('y')})")
             
-            DataCenterValueService.recalculate_all_values()
-            
             return active_module
         except Module.DoesNotExist:
             logger.error(f"Module with ID {module_id} does not exist")
@@ -141,7 +139,7 @@ class ActiveModuleService:
     @staticmethod
     def delete_active_module(active_module_id):
         """
-        Delete an active module without recalculation.
+        Delete an active module without recalculating values.
         Removes a module from the data center.
         
         Args:
@@ -149,20 +147,27 @@ class ActiveModuleService:
             
         Returns:
             bool: True if deletion was successful, False otherwise.
+            
+        Raises:
+            ActiveModule.DoesNotExist: If the active module does not exist.
         """
         try:
             active_module = ActiveModule.objects.get(id=active_module_id)
-            logger.info(f"Deleting active module ID={active_module_id}, Module={active_module.module.name}")
+            module_name = active_module.module.name
+            component_name = active_module.data_center_component.name if active_module.data_center_component else "No component"
+            position = f"({active_module.x}, {active_module.y})"
             
             active_module.delete()
-            logger.info(f"Successfully deleted active module ID={active_module_id}")
-                
+            
+            logger.info(f"Deleted active module ID={active_module_id}, Module={module_name}, Component={component_name}, at {position}")
+            
+            # Just delete the module without recalculating values or validating
             return True
         except ActiveModule.DoesNotExist:
-            logger.error(f"Active module with ID {active_module_id} does not exist")
+            logger.error(f"ActiveModule with ID {active_module_id} does not exist")
             return False
         except Exception as e:
-            logger.error(f"Error deleting active module: {str(e)}", exc_info=True)
+            logger.error(f"Error in delete_active_module: {str(e)}", exc_info=True)
             return False
 
 class DataCenterValueService:

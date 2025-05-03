@@ -67,6 +67,18 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return ActiveModuleService.get_all_active_modules()
     
+    def list(self, request, *args, **kwargs):
+        """
+        List all active modules without validation.
+        """
+        # Get all active modules
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = self.get_serializer(queryset, many=True)
+        
+        return Response({
+            "active_modules": serializer.data
+        })
+    
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -77,7 +89,9 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
             active_module = ActiveModuleService.create_active_module(data)
             
             serializer = self.get_serializer(active_module)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({
+                "active_module": serializer.data
+            }, status=status.HTTP_201_CREATED)
         except ValueError as e:
             logger.error(f"Failed to create active module: {str(e)}")
             logger.error(f"Request data: {request.data}")
@@ -91,24 +105,38 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
         success = ActiveModuleService.delete_active_module(instance.id)
         
         if success:
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response({
+                "status": "success",
+                "message": "Active module deleted successfully"
+            }, status=status.HTTP_200_OK)
+        
         return Response({"error": "Failed to delete active module"}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 def calculate_resources(request):
-    """API endpoint to calculate resource usage"""
+    """API endpoint to calculate resource usage and validate"""
+    # First recalculate all values
+    DataCenterValueService.recalculate_all_values()
+    
+    # Then get active modules and calculate resources
     active_modules = ActiveModuleService.get_all_active_modules()
     results = ModuleCalculationService.calculate_resource_usage(active_modules)
+    
+    # Check validation status
+    validation_result, violations = DataCenterComponentService.validate_component_values()
+    
     return Response({
         'status': 'success',
         'status_code': status.HTTP_200_OK,
         'message': 'Resources calculated successfully',
-        'data': results
+        'data': results,
+        'validation_passed': validation_result,
+        'violations': violations if not validation_result else []
     })
 
 @api_view(['POST'])
 def recalculate_values(request):
-    """API endpoint to recalculate all DataCenterValues"""
+    """API endpoint to recalculate all DataCenterValues and validate"""
     # Recalculate values
     DataCenterValueService.recalculate_all_values()
     
