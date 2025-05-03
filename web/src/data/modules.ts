@@ -1,4 +1,4 @@
-import type { Module } from "../../types";
+import type { ActiveModule, Module } from "../../types";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -91,8 +91,9 @@ function getModuleColor(name: string): string {
   return "#a1a1aa";
 }
 
-// Create a placeholder modules array that will be populated when the data is loaded
-const modules: Module[] = [];
-
-// Export an empty array as default, which will be replaced when data is loaded
-export default modules;
+export async function fetchActiveModules(): Promise<ActiveModule[]> {
+  const response = await fetch(`${API_BASE_URL}/api/active-modules/`);
+  if (!response.ok) throw new Error("Failed to fetch active modules");
+  const json = await response.json();
+  return json.data as ActiveModule[];
+}
