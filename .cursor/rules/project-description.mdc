@@ -1,0 +1,45 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Project Description and Requirements Guide
+
+## Challenge Context
+This project addresses a Siemens Energy hackathon challenge: enabling clients to design made-to-order data centers by exploring options for equipment and services (e.g., remote monitoring, cybersecurity, predictive maintenance) and managing constraints such as internal networking, cooling, electricity, and processing. The goal is to help clients plan data centers that meet desired external networking, storage, and processing loads, while considering all relevant constraints and trade-offs.
+
+## Key Features and Value Proposition
+- **Modern Web Editor:** Built with Vite, the web frontend allows users to configure and visualize data center designs interactively.
+- **Immersive VR Experience:** Users can preview and design the data center in VR, placing modules and defining the room shape on site for a highly engaging, realistic experience.
+- **Cloud-Backed Storage:** All design data is persisted in the backend, enabling collaboration and secure, reliable storage.
+
+## CSV-Driven Generic Rule Engine
+- **Rule CSV:** Defines constraints and optimization goals for data center archetypes or modules. Each row specifies a rule for a particular unit (e.g., Grid_Connection, Space_X, Data_Storage), with enum columns (Below_Amount, Above_Amount, Minimize, Maximize, Unconstrained) indicating how the 'Amount' should be interpreted. Only one enum column is set per row. The 'Unit' is a generic string, and '-1' in 'Amount' means N/A.
+- **Module CSV:** Describes available modules/components and their effects. Each module has inputs (resources it consumes) and outputs (what it provides), with 'Is_Input' and 'Is_Output' flags. Inputs subtract from, and outputs add to, the cumulative sum of each unit in the data center.
+- **Data-Driven Extensibility:** The system is designed to be generic and extensible—new rules or modules can be added by updating the CSVs, not the code.
+
+## Data Model Overview
+- **data_center_specs:** Mirrors the rule CSV, storing constraints and optimization goals for each unit.
+- **modules:** Mirrors the module CSV, storing definitions of each module and their input/output effects.
+- **data_center_value:** Tracks the current value of each unit as modules are added/removed.
+- **dragged_and_dropped_modules:** Stores the spatial placement (x, y) of each module instance in the design.
+- **data_center_points:** Stores the vertices of the user-defined room polygon in VR.
+- **Relationships:** Each dragged module references a module definition; the room is defined as a polygon, but for rule checking, the bounding box is used to derive Space_X and Space_Y.
+
+## Handling Room Geometry and Constraints
+- **Polygonal Room Definition:** In VR, users define the room as a polygon by placing points. This allows for flexible, realistic room shapes.
+- **Rectangular Constraint Mapping:** The backend logic expects rectangular constraints (Space_X, Space_Y). The system computes the axis-aligned bounding box of the polygon to derive these values, ensuring compatibility with the CSV-driven rules.
+- **Dynamic Space Management:** As modules are placed, their space requirements are subtracted from the available area within the bounding box, providing real-time feedback and preventing overfilling.
+
+## Integration and Data Flow
+- **Frontend-Backend Communication:** The frontend (web and VR) communicates with the backend via RESTful API endpoints exposed by Django.
+- **Validation and Optimization:** The backend validates the current design against all rules, provides feedback on constraint violations, and can suggest optimizations (e.g., minimizing price, maximizing processing).
+- **User Experience:** The system offers instant feedback, constraint-aware module selection, and a seamless design process across both web and VR interfaces.
+
+## Development and Extensibility
+- **Rapid Prototyping:** The generic, data-driven approach allows for rapid iteration and easy adaptation to new requirements.
+- **Admin/CSV Upload:** The system can be extended to allow admins or users to upload new CSVs, defining new rules or modules without code changes.
+- **Demo-Ready:** The real-time feedback loop and immersive design experience are highly demo-able and impactful for hackathon judging.
+
+## Summary
+This project combines a flexible, immersive design interface with a robust, generic rule engine driven by CSV data. It bridges the gap between real-world spatial design and abstract constraint logic, offering a powerful, extensible solution for data center planning and configuration. The approach maximizes both user experience and technical robustness, making it a strong contender for hackathon success.

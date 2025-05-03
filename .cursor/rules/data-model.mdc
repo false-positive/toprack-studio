@@ -1,0 +1,68 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Data Model Guide for Data Center Design Platform
+
+As a senior engineer, here's a detailed explanation of the data model and naming conventions you should follow when working on this project. This will help ensure consistency, clarity, and maintainability as the system evolves.
+
+## Overview
+The data model is designed to be generic and extensible, mirroring the structure of the CSV files provided by Siemens Energy. It supports dynamic rule checking, module management, and spatial design in both web and VR interfaces.
+
+## Table and Field Naming Conventions
+- **Table names** should be lowercase, use underscores to separate words, and be descriptive of their purpose (e.g., `data_center_specs`, `modules`).
+- **Field names** should also use lowercase with underscores, and clearly indicate their content and type (e.g., `is_input`, `unit`, `amount`).
+- **IDs** should be named `id` and used as primary keys. Foreign keys should be named as `<referenced_table>_id` (e.g., `module_id`).
+
+## Table Explanations
+
+### data_center_specs
+- **Purpose:** Stores the rules and constraints for each data center archetype or module, directly mirroring the rule CSV.
+- **Fields:**
+  - `id` (int, pk): Unique identifier for the rule.
+  - `name` (int): Reference to the data center archetype/module (should match the module name or type).
+  - `below_amount`, `above_amount`, `minimize`, `maximize`, `unconstrained` (int): Enum flags indicating how to interpret the `amount` field. Only one should be set to 1 per row.
+  - `unit` (string): The resource or constraint type (e.g., `Grid_Connection`, `Space_X`).
+  - `amount` (int): The value for the rule, with `-1` meaning N/A.
+
+### modules
+- **Purpose:** Defines all available modules/components and their effects, mirroring the module CSV.
+- **Fields:**
+  - `id` (int, pk): Unique identifier for the module.
+  - `name` (int): Name or type of the module (should match the CSV and be human-readable, e.g., `Transformer_100`).
+  - `is_input` (int): 1 if the row represents an input (resource consumed), 0 otherwise.
+  - `is_output` (int): 1 if the row represents an output (resource provided), 0 otherwise.
+  - `unit` (string): The resource type affected (e.g., `Usable_Power`).
+  - `amount` (int): The value of the effect (positive integer).
+
+### data_center_value
+- **Purpose:** Tracks the current value of each unit/resource as modules are added or removed from the design.
+- **Fields:**
+  - `id` (int, pk): Unique identifier.
+  - `unit` (string): The resource type being tracked.
+  - `value` (int): The current value for that unit in the design.
+
+### dragged_and_dropped_modules
+- **Purpose:** Stores the spatial placement of each module instance in the design (for both web and VR interfaces).
+- **Fields:**
+  - `id` (int, pk): Unique identifier for the placed module instance.
+  - `x`, `y` (int): Coordinates of the module in the design space.
+  - `module_id` (int): Foreign key referencing the `modules` table.
+
+### data_center_points
+- **Purpose:** Stores the vertices of the user-defined room polygon (for VR room definition).
+- **Fields:**
+  - `id` (int, pk): Unique identifier for the point.
+  - `x`, `y` (int): Coordinates of the point in the design space.
+
+## Relationships
+- Each entry in `dragged_and_dropped_modules` references a module definition in `modules` via `module_id`.
+- The room is defined as a polygon using `data_center_points`. For rule checking, the system computes the axis-aligned bounding box of these points to derive `Space_X` and `Space_Y`.
+
+## Best Practices
+- Always use the exact field and table names as described above to ensure compatibility with the CSV import/export logic and backend validation.
+- When adding new units or modules, update the CSVs and ensure the data model remains in sync.
+- Use the `unit` field consistently as a generic string to allow for future extensibility (e.g., new resource types or constraints).
+
+If you have any questions about the data model or need to extend it, consult this guide and coordinate with the team to maintain consistency.
