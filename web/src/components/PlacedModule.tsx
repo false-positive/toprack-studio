@@ -6,11 +6,11 @@ interface PlacedModuleProps {
 }
 
 export default function PlacedModule({ activeModule }: PlacedModuleProps) {
-  console.log(activeModule);
   const spaceXIdk = activeModule.module_details.attributes.Space_X.amount;
   const spaceYIdk = activeModule.module_details.attributes.Space_Y.amount;
   const spaceX = typeof spaceXIdk === "number" ? spaceXIdk : 10;
   const spaceY = typeof spaceYIdk === "number" ? spaceYIdk : 10;
+  console.dir(JSON.stringify({ activeModule, spaceX, spaceY }, null, 2));
   return (
     <Rectangle
       bounds={[

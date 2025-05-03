@@ -91,9 +91,17 @@ function getModuleColor(name: string): string {
   return "#a1a1aa";
 }
 
-export async function fetchActiveModules(): Promise<ActiveModule[]> {
+export async function fetchActiveModules() {
   const response = await fetch(`${API_BASE_URL}/api/active-modules/`);
   if (!response.ok) throw new Error("Failed to fetch active modules");
   const json = await response.json();
-  return json.data as ActiveModule[];
+  return json as {
+    data: ActiveModule[];
+    data_center: {
+      id: number;
+      name: string;
+      space_x: number;
+      space_y: number;
+    };
+  };
 }

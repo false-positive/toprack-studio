@@ -1,11 +1,13 @@
 import { useDroppable } from "@dnd-kit/core";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { useEffect } from "react";
 import { MapContainer, Polyline, useMap } from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import type { ActiveModule, Module } from "../../types";
 import PlacedModule from "./PlacedModule";
-import WallDimensions from "./WallDimensions";
+import "leaflet/dist/leaflet.css";
+import { Button } from "@/components/ui/button";
+import { Plus, Minus } from "lucide-react";
 
 interface RoomVisualizationProps {
   roomDimensions: {
@@ -47,12 +49,6 @@ export default function RoomVisualization({
     id: "room",
   });
 
-  // Calculate bounds based on room dimensions
-  const bounds: L.LatLngBoundsExpression = [
-    [0, 0],
-    [roomDimensions.height, roomDimensions.width],
-  ];
-
   // Convert walls to polylines
   const wallPolylines = roomDimensions.walls.map((wall, index) => {
     return {
@@ -64,24 +60,61 @@ export default function RoomVisualization({
     };
   });
 
+  // Custom zoom handlers
+  const handleZoomIn = () => {
+    if (mapRef.current) {
+      mapRef.current.setZoom(mapRef.current.getZoom() + 1);
+    }
+  };
+  const handleZoomOut = () => {
+    if (mapRef.current) {
+      mapRef.current.setZoom(mapRef.current.getZoom() - 1);
+    }
+  };
+
   return (
-    <div className="h-full w-full bg-background" ref={setNodeRef}>
+    <div className="h-full w-full bg-background relative" ref={setNodeRef}>
+      {/* Custom Zoom Controls - now on the left above the toolbar */}
+      <div className="absolute left-4 top-4 z-[1000] flex flex-col gap-2 bg-card/80 rounded-md shadow-lg p-2 border border-border">
+        <Button
+          size="icon"
+          variant="outline"
+          aria-label="Zoom in"
+          onClick={handleZoomIn}
+        >
+          <Plus className="w-5 h-5" />
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          aria-label="Zoom out"
+          onClick={handleZoomOut}
+        >
+          <Minus className="w-5 h-5" />
+        </Button>
+      </div>
       <MapContainer
         center={[roomDimensions.height / 2, roomDimensions.width / 2]}
-        zoom={1}
-        minZoom={-2}
-        maxZoom={2}
+        zoom={3}
+        minZoom={-4}
+        maxZoom={5}
         scrollWheelZoom={true}
         crs={L.CRS.Simple}
-        bounds={bounds}
         className="h-full w-full"
         style={{ background: "#18181b" }}
         attributionControl={false}
+        zoomControl={false}
         whenReady={
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ((event: any) => {
             mapRef.current = event.target;
-            event.target.fitBounds(bounds);
+            // Force center and zoom after map is ready
+            if (mapRef.current) {
+              mapRef.current.setView(
+                [roomDimensions.height / 2, roomDimensions.width / 2],
+                3
+              );
+            }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           }) as any
         }
@@ -96,14 +129,9 @@ export default function RoomVisualization({
           />
         ))}
 
-        {/* Wall dimensions */}
-        <WallDimensions walls={roomDimensions.walls} />
-
         {/* Placed modules */}
-        {activeModules.map((activeModule) => {
-          return (
-            <PlacedModule key={activeModule.id} activeModule={activeModule} />
-          );
+        {activeModules.map((activeModule, i) => {
+          return <PlacedModule key={i} activeModule={activeModule} />;
         })}
 
         {/* Event handlers */}

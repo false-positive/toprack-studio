@@ -1,27 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import ModuleLibrary from "./components/ModuleLibrary";
-import RoomVisualization from "./components/RoomVisualization";
-import { fetchActiveModules, fetchModules } from "./data/modules";
-import { Sparkles } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectTrigger,
-  SelectContent,
-  SelectItem,
-  SelectValue,
-} from "@/components/ui/select";
-import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { useQuery } from "@tanstack/react-query";
-import { DndContext, DragOverlay } from "@dnd-kit/core";
-import ModuleCard from "./components/ModuleCard";
-import L from "leaflet";
-import { ActiveModule } from "types";
-import { Route, Routes, Link, useNavigate } from "react-router";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -30,28 +8,48 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Popover,
-  PopoverTrigger,
   PopoverContent,
+  PopoverTrigger,
 } from "@/components/ui/popover";
-import { CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Pencil,
-  Plus,
-  Trash2,
-  MoreVertical,
-  FileText,
-  BookOpen,
-  Settings,
-  ChevronDown,
-  ChevronUp,
-  UploadCloud,
-  ScanLine,
-} from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { DndContext, DragOverlay } from "@dnd-kit/core";
+import { ScrollArea } from "@radix-ui/react-scroll-area";
+import { useQuery } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
-import { useParams } from "react-router";
+import L from "leaflet";
+import {
+  BookOpen,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  MoreVertical,
+  Pencil,
+  Plus,
+  ScanLine,
+  Settings,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+} from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link, Route, Routes, useNavigate, useParams } from "react-router";
+import { ActiveModule } from "types";
+import ModuleCard from "./components/ModuleCard";
+import ModuleLibrary from "./components/ModuleLibrary";
+import RoomVisualization from "./components/RoomVisualization";
+import { fetchActiveModules, fetchModules } from "./data/modules";
 
 // Project type
 interface Project {
@@ -710,26 +708,17 @@ function EditorPage() {
     }
   }, [projectId, setProjects]);
 
-  const [roomDimensions] = useState({
-    width: 20, // meters
-    height: 15, // meters
-    walls: [
-      { start: [0, 0] as [number, number], end: [60, 0] as [number, number] },
-      { start: [60, 0] as [number, number], end: [60, 45] as [number, number] },
-      { start: [60, 45] as [number, number], end: [0, 45] as [number, number] },
-      { start: [0, 45] as [number, number], end: [0, 0] as [number, number] },
-    ],
-  });
-
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
 
   const mapRef = useRef<L.Map | null>(null);
   const lastMousePosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const { data: activeModules } = useQuery({
+  const { data: activeModulesResponse } = useQuery({
     queryKey: ["activeModules"],
     queryFn: () => fetchActiveModules(),
   });
+
+  const activeModules = activeModulesResponse?.data;
 
   const [, setTEMPORARY_REMOVE_SOON_activeModules] = useState<
     Array<ActiveModule>
@@ -765,6 +754,53 @@ function EditorPage() {
       </div>
     );
   }
+
+  const roomDimensions = {
+    width: activeModulesResponse.data_center.space_x, // meters
+    height: activeModulesResponse.data_center.space_y, // meters
+    walls: [
+      {
+        start: [
+          -activeModulesResponse.data_center.space_x / 2,
+          -activeModulesResponse.data_center.space_y / 2,
+        ] as [number, number],
+        end: [
+          activeModulesResponse.data_center.space_x / 2,
+          -activeModulesResponse.data_center.space_y / 2,
+        ] as [number, number],
+      },
+      {
+        start: [
+          activeModulesResponse.data_center.space_x / 2,
+          -activeModulesResponse.data_center.space_y / 2,
+        ] as [number, number],
+        end: [
+          activeModulesResponse.data_center.space_x / 2,
+          activeModulesResponse.data_center.space_y / 2,
+        ] as [number, number],
+      },
+      {
+        start: [
+          activeModulesResponse.data_center.space_x / 2,
+          activeModulesResponse.data_center.space_y / 2,
+        ] as [number, number],
+        end: [
+          -activeModulesResponse.data_center.space_x / 2,
+          activeModulesResponse.data_center.space_y / 2,
+        ] as [number, number],
+      },
+      {
+        start: [
+          -activeModulesResponse.data_center.space_x / 2,
+          activeModulesResponse.data_center.space_y / 2,
+        ] as [number, number],
+        end: [
+          -activeModulesResponse.data_center.space_x / 2,
+          -activeModulesResponse.data_center.space_y / 2,
+        ] as [number, number],
+      },
+    ],
+  };
 
   return (
     <DndContext

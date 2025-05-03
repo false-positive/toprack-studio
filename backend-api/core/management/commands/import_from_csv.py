@@ -188,9 +188,15 @@ class Command(BaseCommand):
         """Initialize DataCenterValue objects from DataCenterComponentAttributes"""
         try:
             from core.services import DataCenterValueService
+            from core.models import DataCenter
             
-            values = DataCenterValueService.initialize_values_from_components()
-            self.stdout.write(self.style.SUCCESS(f"Initialized {len(values)} DataCenterValues"))
+            # Get or create the default data center
+            data_center = DataCenter.get_default()
+            
+            # Initialize values with the data center
+            values = DataCenterValueService.initialize_values_from_components(data_center)
+            
+            self.stdout.write(self.style.SUCCESS(f"Initialized {len(values)} DataCenterValues for {data_center.name}"))
         except Exception as e:
             self.stderr.write(f"Failed to initialize values: {e}")
             raise

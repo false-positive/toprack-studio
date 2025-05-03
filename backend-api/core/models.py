@@ -1,4 +1,5 @@
 from django.db import models
+from backend.settings import DataCenterConstants
 
 class Module(models.Model):
     name = models.CharField(max_length=255)
@@ -16,8 +17,37 @@ class ModuleAttribute(models.Model):
     def __str__(self):
         return f"{self.module.name} - {self.unit}: {self.amount}"
 
+
+
+
+
+class DataCenter(models.Model):
+    """
+    Model representing a data center with its name and space dimensions.
+    """
+    name = models.CharField(max_length=255)
+    space_x = models.IntegerField(default=1000)
+    space_y = models.IntegerField(default=500)
+    
+    def __str__(self):
+        return f"DataCenter: {self.name} ({self.space_x}x{self.space_y})"
+    
+    @classmethod
+    def get_default(cls):
+        """Get or create the default data center"""
+        data_center, created = cls.objects.get_or_create(
+            name="Default Data Center",
+            defaults={
+                'space_x': DataCenterConstants.SPACE_X_INITIAL,
+                'space_y': DataCenterConstants.SPACE_Y_INITIAL
+            }
+        )
+        return data_center
+    
 class DataCenterComponent(models.Model):
     name = models.CharField(max_length=255)
+    data_center = models.ForeignKey(DataCenter, on_delete=models.CASCADE, 
+                                   related_name="components", null=True, blank=True)
     
     def __str__(self):
         return f"Component: {self.name}"
@@ -34,28 +64,19 @@ class DataCenterComponentAttribute(models.Model):
     
     def __str__(self):
         return f"{self.component.name} - {self.unit}: {self.amount}"
-
-class ActiveModule(models.Model):
-    x = models.IntegerField()
-    y = models.IntegerField()
-    module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name="instances")
-    data_center_component = models.ForeignKey(DataCenterComponent, on_delete=models.CASCADE, 
-                                             related_name="active_modules", null=True, blank=True)
-
-    def __str__(self):
-        component_name = self.data_center_component.name if self.data_center_component else "No component"
-        return f"{self.module.name} at ({self.x}, {self.y}) in {component_name}"
-
-
+    
 class DataCenterValue(models.Model):
     unit = models.CharField(max_length=255)
     value = models.IntegerField()
     component = models.ForeignKey(DataCenterComponent, on_delete=models.CASCADE, 
                                  related_name="values", null=True, blank=True)
+    data_center = models.ForeignKey(DataCenter, on_delete=models.CASCADE, 
+                                   related_name="values", null=True, blank=True)
 
     def __str__(self):
         component_name = self.component.name if self.component else "Global"
-        return f"{component_name} - {self.unit}: {self.value}"
+        data_center_name = self.data_center.name if self.data_center else "No Data Center"
+        return f"{data_center_name} - {component_name} - {self.unit}: {self.value}"
 
 
 class DataCenterPoints(models.Model):
@@ -64,3 +85,15 @@ class DataCenterPoints(models.Model):
 
     def __str__(self):
         return f"Point at ({self.x}, {self.y})"
+class ActiveModule(models.Model):
+    x = models.IntegerField()
+    y = models.IntegerField()
+    module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name="instances")
+    data_center_component = models.ForeignKey(DataCenterComponent, on_delete=models.CASCADE, 
+                                             related_name="active_modules", null=True, blank=True)
+    data_center = models.ForeignKey(DataCenter, on_delete=models.CASCADE,
+                                   related_name="active_modules", null=True, blank=True)
+
+    def __str__(self):
+        component_name = self.data_center_component.name if self.data_center_component else "No component"
+        return f"{self.module.name} at ({self.x}, {self.y}) in {component_name}"
