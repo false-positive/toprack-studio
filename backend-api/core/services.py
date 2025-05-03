@@ -125,7 +125,6 @@ class ActiveModuleService:
             component_name = component.name if component else "No component"
             logger.info(f"Created active module ID={active_module.id}, Module={module.name}, Component={component_name}, at ({data.get('x')}, {data.get('y')})")
             
-            # Recalculate values after adding a module
             DataCenterValueService.recalculate_all_values()
             
             return active_module
