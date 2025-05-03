@@ -178,7 +178,7 @@ function SplashScreen() {
       );
       if (!resp.ok) throw new Error("Failed to initialize values");
       // Create new project locally
-      const newId = Date.now();
+      const newId = (await resp.json()).data.id;
       setProjects((prev) => [
         ...prev,
         {
