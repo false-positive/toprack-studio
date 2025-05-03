@@ -36,7 +36,18 @@ import {
   PopoverContent,
 } from "@/components/ui/popover";
 import { CardHeader, CardTitle } from "@/components/ui/card";
-import { Pencil, Plus, Trash2, MoreVertical } from "lucide-react";
+import {
+  Pencil,
+  Plus,
+  Trash2,
+  MoreVertical,
+  FileText,
+  BookOpen,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  UploadCloud,
+} from "lucide-react";
 import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { useParams } from "react-router";
@@ -68,33 +79,47 @@ function SplashScreen() {
   const [newProjectName, setNewProjectName] = useState("");
   const [renameValue, setRenameValue] = useState("");
 
-  function handleCreateProject() {
-    if (newProjectName.trim()) {
-      setProjects((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          name: newProjectName.trim(),
-          lastOpenedAt: new Date().toISOString(),
-        },
-      ]);
-      setNewProjectName("");
-      setNewProjectDialogOpen(false);
-    }
-  }
-
-  function handleRenameProject(id: number) {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, name: renameValue } : p))
-    );
-    setRenameDialogOpen(null);
-    setRenameValue("");
-  }
-
-  function handleDeleteProject(id: number) {
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    setDeleteDialogOpen(null);
-  }
+  // Mock data for module libraries and rulesets
+  const mockLibraries = [
+    {
+      id: 1,
+      name: "Standard Library",
+      description: "Default Siemens modules",
+      icon: <BookOpen className="w-8 h-8 text-primary" />,
+    },
+    {
+      id: 2,
+      name: "Custom Library",
+      description: "Your custom imported modules",
+      icon: <BookOpen className="w-8 h-8 text-secondary" />,
+    },
+  ];
+  const mockRulesets = [
+    {
+      id: 1,
+      name: "Standard Rules",
+      description: "Default Siemens ruleset",
+      icon: <FileText className="w-8 h-8 text-primary" />,
+    },
+    {
+      id: 2,
+      name: "Green Rules",
+      description: "Eco-friendly constraints",
+      icon: <FileText className="w-8 h-8 text-green-600" />,
+    },
+  ];
+  // Units state
+  const [unitsOpen, setUnitsOpen] = useState(false);
+  const [units, setUnits] = useState({
+    distance: "m",
+    currency: "EUR",
+    water: "L",
+    power: "kW",
+  });
+  // Multi-step dialog state
+  const [projectStep, setProjectStep] = useState(0);
+  const [selectedLibrary, setSelectedLibrary] = useState<number | null>(null);
+  const [selectedRuleset, setSelectedRuleset] = useState<number | null>(null);
 
   // Helper to format relative time
   function formatRelativeTime(dateString: string) {
@@ -277,42 +302,235 @@ function SplashScreen() {
           </div>
         )}
       </div>
-      {/* New Project Dialog */}
+      {/* New Project Dialog (multi-step) */}
       <Dialog
         open={newProjectDialogOpen}
         onOpenChange={setNewProjectDialogOpen}
       >
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>New Project</DialogTitle>
             <DialogDescription>
-              Enter a name for your new project.
+              Set up your new project in a few easy steps.
             </DialogDescription>
           </DialogHeader>
-          <Input
-            autoFocus
-            placeholder="Project name"
-            value={newProjectName}
-            onChange={(e) => setNewProjectName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") handleCreateProject();
-            }}
-          />
-          <DialogFooter>
-            <Button
-              variant="secondary"
-              onClick={() => setNewProjectDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleCreateProject}
-              disabled={!newProjectName.trim()}
-            >
-              Create
-            </Button>
-          </DialogFooter>
+          {/* Step 1: Name */}
+          {projectStep === 0 && (
+            <div className="flex flex-col gap-4">
+              <label className="font-medium text-sm">Project Name</label>
+              <Input
+                autoFocus
+                placeholder="Project name"
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && newProjectName.trim())
+                    setProjectStep(1);
+                }}
+              />
+              <DialogFooter>
+                <Button
+                  variant="secondary"
+                  onClick={() => setNewProjectDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => setProjectStep(1)}
+                  disabled={!newProjectName.trim()}
+                >
+                  Next
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+          {/* Step 2: Module Library */}
+          {projectStep === 1 && (
+            <div className="flex flex-col gap-4">
+              <label className="font-medium text-sm mb-1">
+                Select Module Library
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {mockLibraries.map((lib) => (
+                  <button
+                    key={lib.id}
+                    className={`flex flex-col items-center justify-center border-2 rounded-xl p-4 gap-2 transition-all cursor-pointer focus:outline-none ${
+                      selectedLibrary === lib.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/60"
+                    }`}
+                    onClick={() => setSelectedLibrary(lib.id)}
+                  >
+                    {lib.icon}
+                    <span className="font-semibold text-base">{lib.name}</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      {lib.description}
+                    </span>
+                  </button>
+                ))}
+                <button
+                  className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-4 gap-2 transition-all cursor-pointer hover:border-primary/60 focus:outline-none"
+                  onClick={() => {}}
+                >
+                  <UploadCloud className="w-8 h-8 text-muted-foreground" />
+                  <span className="font-semibold text-base">
+                    Import from CSV
+                  </span>
+                  <span className="text-xs text-muted-foreground text-center">
+                    Upload a new module library
+                  </span>
+                </button>
+              </div>
+              <DialogFooter>
+                <Button variant="secondary" onClick={() => setProjectStep(0)}>
+                  Back
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => setProjectStep(2)}
+                  disabled={selectedLibrary === null}
+                >
+                  Next
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+          {/* Step 3: Ruleset */}
+          {projectStep === 2 && (
+            <div className="flex flex-col gap-4">
+              <label className="font-medium text-sm mb-1">Select Ruleset</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {mockRulesets.map((rule) => (
+                  <button
+                    key={rule.id}
+                    className={`flex flex-col items-center justify-center border-2 rounded-xl p-4 gap-2 transition-all cursor-pointer focus:outline-none ${
+                      selectedRuleset === rule.id
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/60"
+                    }`}
+                    onClick={() => setSelectedRuleset(rule.id)}
+                  >
+                    {rule.icon}
+                    <span className="font-semibold text-base">{rule.name}</span>
+                    <span className="text-xs text-muted-foreground text-center">
+                      {rule.description}
+                    </span>
+                  </button>
+                ))}
+                <button
+                  className="flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-4 gap-2 transition-all cursor-pointer hover:border-primary/60 focus:outline-none"
+                  onClick={() => {}}
+                >
+                  <UploadCloud className="w-8 h-8 text-muted-foreground" />
+                  <span className="font-semibold text-base">
+                    Import from CSV
+                  </span>
+                  <span className="text-xs text-muted-foreground text-center">
+                    Upload a new ruleset
+                  </span>
+                </button>
+              </div>
+              <DialogFooter>
+                <Button variant="secondary" onClick={() => setProjectStep(1)}>
+                  Back
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => setProjectStep(3)}
+                  disabled={selectedRuleset === null}
+                >
+                  Next
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+          {/* Step 4: Units (collapsible) & Finish */}
+          {projectStep === 3 && (
+            <div className="flex flex-col gap-4">
+              <div
+                className="flex items-center justify-between cursor-pointer select-none"
+                onClick={() => setUnitsOpen((v) => !v)}
+              >
+                <span className="font-medium text-sm flex items-center gap-2">
+                  <Settings className="w-4 h-4" /> Advanced: Units
+                </span>
+                {unitsOpen ? (
+                  <ChevronUp className="w-4 h-4" />
+                ) : (
+                  <ChevronDown className="w-4 h-4" />
+                )}
+              </div>
+              {unitsOpen && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-muted/40 rounded-lg p-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium">Distance</label>
+                    <Input
+                      value={units.distance}
+                      onChange={(e) =>
+                        setUnits((u) => ({ ...u, distance: e.target.value }))
+                      }
+                      placeholder="e.g. m, ft"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium">Currency</label>
+                    <Input
+                      value={units.currency}
+                      onChange={(e) =>
+                        setUnits((u) => ({ ...u, currency: e.target.value }))
+                      }
+                      placeholder="e.g. EUR, USD"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium">Water Volume</label>
+                    <Input
+                      value={units.water}
+                      onChange={(e) =>
+                        setUnits((u) => ({ ...u, water: e.target.value }))
+                      }
+                      placeholder="e.g. L, gal"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium">Power</label>
+                    <Input
+                      value={units.power}
+                      onChange={(e) =>
+                        setUnits((u) => ({ ...u, power: e.target.value }))
+                      }
+                      placeholder="e.g. kW, MW"
+                    />
+                  </div>
+                </div>
+              )}
+              <DialogFooter>
+                <Button variant="secondary" onClick={() => setProjectStep(2)}>
+                  Back
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => {
+                    /* handle final create */ setNewProjectDialogOpen(false);
+                    setProjectStep(0);
+                    setSelectedLibrary(null);
+                    setSelectedRuleset(null);
+                    setUnitsOpen(false);
+                    setUnits({
+                      distance: "m",
+                      currency: "EUR",
+                      water: "L",
+                      power: "kW",
+                    });
+                    setNewProjectName("");
+                  }}
+                >
+                  Create Project
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
       {/* Rename Project Dialog */}
@@ -460,6 +678,19 @@ function EditorPage() {
     const matchesType = typeFilter === "all" || module.type === typeFilter;
     return matchesSearch && matchesType;
   });
+
+  function handleRenameProject(id: number) {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, name: renameValue } : p))
+    );
+    setRenameDialogOpen(null);
+    setRenameValue("");
+  }
+
+  function handleDeleteProject(id: number) {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setDeleteDialogOpen(null);
+  }
 
   if (modulesLoading || !activeModules) {
     return (
