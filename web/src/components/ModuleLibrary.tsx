@@ -67,10 +67,7 @@ function ModuleItem({ module }: ModuleItemProps) {
   );
 }
 
-export default function ModuleLibrary({
-  modules,
-  onModulePlaced,
-}: ModuleLibraryProps) {
+export default function ModuleLibrary({ modules }: ModuleLibraryProps) {
   const [filter, setFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
 
