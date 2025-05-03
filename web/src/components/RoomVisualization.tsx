@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { MapContainer, Polyline, useMap, Rectangle } from "react-leaflet";
+import { MapContainer, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
 import type { ActiveModule, Module } from "../../types";
 import PlacedModule from "./PlacedModule";
@@ -51,12 +51,6 @@ export default function RoomVisualization({ roomDimensions, TEMPORARY_REMOVE_SOO
         id: "room",
     });
 
-    // Calculate bounds based on room dimensions
-    const bounds: L.LatLngBoundsExpression = [
-        [0, 0],
-        [roomDimensions.height, roomDimensions.width],
-    ];
-
     // Convert walls to polylines
     const wallPolylines = roomDimensions.walls.map((wall, index) => {
         return {
@@ -93,12 +87,11 @@ export default function RoomVisualization({ roomDimensions, TEMPORARY_REMOVE_SOO
             </div>
             <MapContainer
                 center={[roomDimensions.height / 2, roomDimensions.width / 2]}
-                zoom={1}
-                minZoom={-2}
-                maxZoom={2}
+                zoom={3}
+                minZoom={-4}
+                maxZoom={5}
                 scrollWheelZoom={true}
                 crs={L.CRS.Simple}
-                bounds={bounds}
                 className="h-full w-full"
                 style={{ background: "#18181b" }}
                 attributionControl={false}
@@ -107,8 +100,10 @@ export default function RoomVisualization({ roomDimensions, TEMPORARY_REMOVE_SOO
                     // eslint-disable-next-line @typescript-eslint/no-explicit-any
                     ((event: any) => {
                         mapRef.current = event.target;
-                        event.target.fitBounds(bounds);
-                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        // Force center and zoom after map is ready
+                        if (mapRef.current) {
+                            mapRef.current.setView([roomDimensions.height / 2, roomDimensions.width / 2], 3);
+                        }
                     }) as any
                 }
             >
