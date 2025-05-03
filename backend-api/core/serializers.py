@@ -4,19 +4,26 @@ from .models import Module, ActiveModule, DataCenterSpecs, DataCenterPoints, Mod
 class ModuleAttributeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ModuleAttribute
-        fields = ['unit', 'amount']
+        fields = ['unit', 'amount', 'is_input', 'is_output']
 
 class ModuleSerializer(serializers.ModelSerializer):
     attributes = serializers.SerializerMethodField()
 
     class Meta:
         model = Module
-        fields = ['id', 'name', 'is_input', 'is_output', 'attributes']
+        fields = ['id', 'name', 'attributes']
     
     def get_attributes(self, obj):
         """Convert attributes from list of objects to dictionary with unit as key"""
         attributes = ModuleAttribute.objects.filter(module=obj)
-        return {attr.unit: attr.amount for attr in attributes}
+        result = {}
+        for attr in attributes:
+            result[attr.unit] = {
+                'amount': attr.amount,
+                'is_input': attr.is_input,
+                'is_output': attr.is_output
+            }
+        return result
 
 class ActiveModuleSerializer(serializers.ModelSerializer):
     class Meta:

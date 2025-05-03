@@ -1,13 +1,13 @@
+from django.shortcuts import render
 from rest_framework import viewsets, status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import Module, ActiveModule, DataCenterPoints
+from .models import Module, ActiveModule, DataCenterSpecs, DataCenterValue, DataCenterPoints
 from .serializers import ModuleSerializer, ActiveModuleSerializer, DataCenterPointsSerializer
-from .services import ModuleService, ActiveModuleService, ModuleCalculationService, DataCenterValueService, DataCenterSpecsService
+from .services import ActiveModuleService, ModuleCalculationService, DataCenterValueService, DataCenterSpecsService, ModuleService
 import logging
-from rest_framework.renderers import JSONRenderer
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('django')
 
 def custom_exception_handler(exc, context):
     from rest_framework.views import exception_handler
@@ -102,13 +102,17 @@ def calculate_resources(request):
 @api_view(['POST'])
 def recalculate_values(request):
     """API endpoint to recalculate all DataCenterValues"""
+    # Recalculate values
     DataCenterValueService.recalculate_all_values()
     
-    # Optionally validate after recalculation
+    # Validate after recalculation
     validation_result = DataCenterSpecsService.validate_current_values()
     
+    # Return a more structured response
     return Response({
-        "status": "Values recalculated successfully",
+        "status": "success",
+        "status_code": status.HTTP_200_OK,
+        "message": "Values recalculated successfully",
         "validation_passed": validation_result
     })
 

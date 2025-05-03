@@ -2,11 +2,11 @@ from django.db import models
 
 class Module(models.Model):
     name = models.CharField(max_length=255)
-    is_input = models.BooleanField()
-    is_output = models.BooleanField()
-
+    
 class ModuleAttribute(models.Model):
     module = models.ForeignKey(Module, on_delete=models.CASCADE, related_name='attributes')
+    is_input = models.BooleanField(default=False)
+    is_output = models.BooleanField(default=False)
     unit = models.CharField(max_length=255)
     amount = models.IntegerField()
 

@@ -9,3 +9,191 @@ WARNING 2025-05-03 03:18:55,327 log Bad Request: /api/validate-values/
 WARNING 2025-05-03 03:22:38,530 log Bad Request: /api/validate-values/
 WARNING 2025-05-03 03:26:07,341 log Bad Request: /api/validate-values/
 WARNING 2025-05-03 04:15:07,656 log Bad Request: /api/active-modules/
+WARNING 2025-05-03 04:58:04,042 log Method Not Allowed: /api/validate-values/
+ERROR 2025-05-03 04:58:13,806 log Internal Server Error: /api/validate-values/
+Traceback (most recent call last):
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/core/views.py", line 122, in validate_values
+    all_specs = DataCenterSpecs.objects.all()
+                ^^^^^^^^^^^^^^^
+NameError: name 'DataCenterSpecs' is not defined
+ERROR 2025-05-03 04:58:44,180 log Internal Server Error: /api/validate-values/
+Traceback (most recent call last):
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/core/views.py", line 122, in validate_values
+    all_specs = DataCenterSpecs.objects.all()
+                ^^^^^^^^^^^^^^^
+NameError: name 'DataCenterSpecs' is not defined
+ERROR 2025-05-03 04:59:06,191 log Internal Server Error: /api/validate-values/
+Traceback (most recent call last):
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/core/views.py", line 122, in validate_values
+    all_specs = DataCenterSpecs.objects.all()
+                ^^^^^^^^^^^^^^^
+NameError: name 'DataCenterSpecs' is not defined
+ERROR 2025-05-03 04:59:15,698 log Internal Server Error: /api/validate-values/
+Traceback (most recent call last):
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/core/views.py", line 122, in validate_values
+    all_specs = DataCenterSpecs.objects.all()
+                ^^^^^^^^^^^^^^^
+NameError: name 'DataCenterSpecs' is not defined
+ERROR 2025-05-03 04:59:26,921 log Internal Server Error: /api/validate-values/
+Traceback (most recent call last):
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/core/views.py", line 122, in validate_values
+    all_specs = DataCenterSpecs.objects.all()
+                ^^^^^^^^^^^^^^^
+NameError: name 'DataCenterSpecs' is not defined
+ERROR 2025-05-03 04:59:27,586 log Internal Server Error: /api/validate-values/
+Traceback (most recent call last):
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/core/handlers/base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/decorators/csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/django/views/generic/base.py", line 104, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/.venv/lib/python3.11/site-packages/rest_framework/decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/ivamarinova/hack-upc/hackupc/backend-api/core/views.py", line 122, in validate_values
+    all_specs = DataCenterSpecs.objects.all()
+                ^^^^^^^^^^^^^^^
+NameError: name 'DataCenterSpecs' is not defined
+WARNING 2025-05-03 05:25:43,276 log Method Not Allowed: /api/validate-values/

@@ -4,6 +4,7 @@ import csv
 import io
 from django.db import transaction
 import logging
+from backend.settings import DataCenterConstants
 
 logger = logging.getLogger(__name__)
 
@@ -66,31 +67,27 @@ class Command(BaseCommand):
             with open(path, 'rb') as f:
                 reader = self.detect_delimiter_and_read(f)
                 
-                # Group rows by ID to handle multiple attributes per module
                 modules_by_id = {}
                 for row in reader:
                     module_id = int(row['ID'])
                     if module_id not in modules_by_id:
                         modules_by_id[module_id] = {
                             'name': row['Name'],
-                            'is_input': bool(int(row['Is_Input'])),
-                            'is_output': bool(int(row['Is_Output'])),
                             'attributes': []
                         }
                     
-                    # Add this attribute to the module
                     modules_by_id[module_id]['attributes'].append({
                         'unit': row['Unit'],
-                        'amount': int(row['Amount'])
+                        'amount': int(row['Amount']),
+                        'is_input': bool(int(row['Is_Input'])),
+                        'is_output': bool(int(row['Is_Output']))
                     })
                 
                 # Create modules and their attributes
                 for module_id, module_data in modules_by_id.items():
                     # Create the module
                     module = Module.objects.create(
-                        name=module_data['name'],
-                        is_input=module_data['is_input'],
-                        is_output=module_data['is_output']
+                        name=module_data['name']
                     )
                     
                     # Create all attributes for this module
@@ -98,7 +95,9 @@ class Command(BaseCommand):
                         ModuleAttribute.objects.create(
                             module=module,
                             unit=attr['unit'],
-                            amount=attr['amount']
+                            amount=attr['amount'],
+                            is_input=attr['is_input'],
+                            is_output=attr['is_output']
                         )
                     
                     self.stdout.write(f"Created module {module.name} with {len(module_data['attributes'])} attributes")
@@ -149,9 +148,9 @@ class Command(BaseCommand):
             
             # Special handling for Space_X and Space_Y if they exist in specs
             if 'Space_X' in unique_units:
-                initial_values['Space_X'] = 1000  # Total available space in X dimension
+                initial_values['Space_X'] = DataCenterConstants.SPACE_X_INITIAL
             if 'Space_Y' in unique_units:
-                initial_values['Space_Y'] = 500  # Total available space in Y dimension - FIX: was incorrectly set to 5000
+                initial_values['Space_Y'] = DataCenterConstants.SPACE_Y_INITIAL
             
             # Determine initial values based on constraints
             for unit in unique_units:

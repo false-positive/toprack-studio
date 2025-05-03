@@ -2,12 +2,14 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     ModuleViewSet, ActiveModuleViewSet, calculate_resources, 
-    recalculate_values, initialize_values, validate_values
+    recalculate_values, initialize_values, validate_values,
+    DataCenterPointsViewSet
 )
 
 router = DefaultRouter()
 router.register(r'modules', ModuleViewSet)
 router.register(r'active-modules', ActiveModuleViewSet)
+router.register(r'datacenter-points', DataCenterPointsViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

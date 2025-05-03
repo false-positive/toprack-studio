@@ -1,3 +1,30 @@
+## Development Setup
+
+### Dependencies
+
+This project uses `uv` for Python dependency management. To set up the project:
+
+1. Install dependencies:
+
+   ```
+   uv sync
+   ```
+
+2. Run the development server:
+
+   ```
+   uv run python manage.py runserver
+   ```
+
+### Usage workflow:
+
+- Get available modules: `GET /api/modules/`
+- Choose modules and place in the data center by activating them: `POST /api/active-modules/`
+- Calculate resource usage: `GET /api/calculate-resources/`
+  - This will just add them to the db, but won't fact check anything and won't place them on the datacenter.
+- Validate constraints: `GET /api/recalculate-values/`
+  - This will place them on the datacenter and do checks.
+
 ## API Endpoints
 
 The backend API provides the following endpoints:
@@ -53,3 +80,97 @@ The backend API provides the following endpoints:
     }
     ```
   - Returns: Created data center point details
+
+### Validation
+
+- GET /api/calculate-resources/
+  Logic: Calculates total resource usage based on all active modules
+  Service: Calls ModuleCalculationService.calculate_resource_usage(active_modules)
+  Process:
+  Gets all active modules
+  Calculates total resource usage for each unit (Space_X, Space_Y, Price, etc.)
+  Response: Returns calculated totals for each resource type
+  Use case: Shows the user current resource consumption
+- `POST /api/recalculate-values/` - Recalculate all data center values and validate
+
+  - Returns: Recalculation status and validation result
+  - Example response:
+    ```json
+    {
+      "status": "success",
+      "status_code": 200,
+      "message": "Values recalculated successfully",
+      "validation_passed": true
+    }
+    ```
+
+- `GET /api/validate-values/` - Validate current data center values against specifications
+
+  - **You don't need to call this probably, recalculate-values calls it internally.**
+
+  - Returns: Validation status, specifications, and current values
+  - Example success response:
+    ```json
+    {
+      "status": "All specifications validated successfully",
+      "specs": [
+        {
+          "name": "Server_Square",
+          "unit": "Space_X",
+          "amount": 1000,
+          "constraints": ["below 1000"]
+        },
+        {
+          "name": "Server_Square",
+          "unit": "Space_Y",
+          "amount": 500,
+          "constraints": ["below 500"]
+        },
+        {
+          "name": "Dense_Storage",
+          "unit": "Data_Storage",
+          "amount": 1000,
+          "constraints": ["above 1000"]
+        }
+      ],
+      "current_values": {
+        "Space_X": 850,
+        "Space_Y": 400,
+        "Data_Storage": 1200,
+        "Price": 50000
+      }
+    }
+    ```
+  - Example failure response:
+    ```json
+    {
+      "status": "Validation failed, see logs for details",
+      "specs": [
+        {
+          "name": "Server_Square",
+          "unit": "Space_X",
+          "amount": 1000,
+          "constraints": ["below 1000"]
+        },
+        {
+          "name": "Server_Square",
+          "unit": "Space_Y",
+          "amount": 500,
+          "constraints": ["below 500"]
+        },
+        {
+          "name": "Dense_Storage",
+          "unit": "Data_Storage",
+          "amount": 1000,
+          "constraints": ["above 1000"]
+        }
+      ],
+      "current_values": {
+        "Space_X": -50,
+        "Space_Y": 400,
+        "Data_Storage": 800,
+        "Price": 50000
+      }
+    }
+    ```
+  - Status code: 200 OK for success, 400 Bad Request for validation failures

@@ -178,3 +178,9 @@ REST_FRAMEWORK = {
         'rest_framework.renderers.BrowsableAPIRenderer',
     ],
 }
+
+# Data Center Configuration Constants
+class DataCenterConstants:
+    """Constants for data center configuration"""
+    SPACE_X_INITIAL = 1000  # Total available space in X dimension
+    SPACE_Y_INITIAL = 500   # Total available space in Y dimension
