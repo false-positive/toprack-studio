@@ -7,6 +7,7 @@ import { MapContainer, Polyline, useMap } from "react-leaflet";
 import type { ActiveModule, Module } from "../../types";
 import PlacedModule from "./PlacedModule";
 import { Button } from "./ui/button";
+import WallDimensions from "./WallDimensions";
 
 interface RoomVisualizationProps {
   roomDimensions: {
@@ -129,6 +130,9 @@ export default function RoomVisualization({
             weight={3}
           />
         ))}
+
+        {/* Wall length overlays */}
+        <WallDimensions walls={roomDimensions.walls} />
 
         {/* Placed modules */}
         {activeModules.map((activeModule, i) => {
