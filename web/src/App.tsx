@@ -1,6 +1,4 @@
 import { useState } from "react";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
 import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
 import { fetchModules } from "./data/modules";
@@ -18,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { useQuery } from "@tanstack/react-query";
+import { DndContext } from "@dnd-kit/core";
 
 function App() {
   const { data: loadedModules = [], isLoading: loading } = useQuery({
@@ -97,7 +96,7 @@ function App() {
   }
 
   return (
-    <DndProvider backend={HTML5Backend}>
+    <DndContext>
       <div className="flex flex-col min-h-screen bg-background text-foreground dark">
         <header className="w-full h-(--header-height) border-b flex items-center border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0">
           <div className="flex items-center gap-3 px-8 py-3">
@@ -179,7 +178,7 @@ function App() {
           </div>
         </main>
       </div>
-    </DndProvider>
+    </DndContext>
   );
 }
 
