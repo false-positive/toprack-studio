@@ -115,14 +115,8 @@ export default function RoomVisualization({
             mapRef.current.fitBounds(bounds);
           }
         }}
+        attributionControl={false}
       >
-        {/* Background grid */}
-        <ImageOverlay
-          bounds={bounds}
-          url="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
-          opacity={0.1}
-        />
-
         {/* Room walls */}
         {wallPolylines.map((wall) => (
           <Polyline
