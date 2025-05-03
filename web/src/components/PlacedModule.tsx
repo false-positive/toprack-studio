@@ -89,7 +89,7 @@ export default function PlacedModule({
         <Popup>
           <div className="flex flex-col gap-2">
             <div className="font-bold text-lg">
-              {activeModule.module_details.name}
+              {activeModule.module_details.name.replace(/[ _-]/g, " ")}
             </div>
             {/* <div className="text-xs text-muted-foreground break-all">
               <pre className="whitespace-pre-wrap">

@@ -53,7 +53,7 @@ export default function ModuleCard({
       </div>
       <div className="flex-1">
         <h3 className="font-semibold text-base leading-tight text-foreground">
-          {module.name}
+          {module.name.replace(/[ _-]/g, " ")}
         </h3>
         <p className="text-xs text-muted-foreground">
           {(module.width / 10).toFixed(1)}m × {(module.depth / 10).toFixed(1)}m
