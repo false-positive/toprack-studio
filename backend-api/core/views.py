@@ -70,13 +70,35 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         """
         List all active modules without validation.
+        Returns detailed information about each active module including module details.
         """
         # Get all active modules
         queryset = self.filter_queryset(self.get_queryset())
+        
         serializer = self.get_serializer(queryset, many=True)
         
+        # Get module details for each active module
+        detailed_modules = []
+        for active_module in serializer.data:
+            try:
+                module = Module.objects.get(id=active_module['module'])
+                module_serializer = ModuleSerializer(module)
+                
+                # Create a detailed response with both active module and module details
+                detailed_module = {
+                    **active_module,
+                    'module_details': module_serializer.data
+                }
+                detailed_modules.append(detailed_module)
+            except Module.DoesNotExist:
+                # If module doesn't exist, just include the basic active module data
+                detailed_modules.append(active_module)
+        
         return Response({
-            "active_modules": serializer.data
+            'status': 'success',
+            'status_code': status.HTTP_200_OK,
+            'message': 'Active modules retrieved successfully',
+            'data': detailed_modules
         })
     
     def create(self, request, *args, **kwargs):
