@@ -19,6 +19,7 @@ import { useQuery } from "@tanstack/react-query";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import ModuleCard from "./components/ModuleCard";
 import L from "leaflet";
+import { ActiveModule } from "types";
 
 function App() {
   const { data: loadedModules = [], isLoading: loading } = useQuery({
@@ -27,15 +28,6 @@ function App() {
   });
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
-
-  const [placedModules, setPlacedModules] = useState<
-    Array<{
-      id: string;
-      moduleId: string;
-      position: [number, number];
-      rotation: number;
-    }>
-  >([]);
 
   const [roomDimensions] = useState({
     width: 20, // meters
@@ -56,7 +48,7 @@ function App() {
   const [
     TEMPORARY_REMOVE_SOON_activeModules,
     setTEMPORARY_REMOVE_SOON_activeModules,
-  ] = useState<Array<{ id: number; x: number; y: number; module: number }>>([]);
+  ] = useState<Array<ActiveModule>>([]);
 
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
@@ -65,32 +57,6 @@ function App() {
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
-
-  const handleModulePlaced = (moduleId: string, position: [number, number]) => {
-    setPlacedModules((prev) => [
-      ...prev,
-      {
-        id: `${moduleId}-${Date.now()}`,
-        moduleId,
-        position,
-        rotation: 0,
-      },
-    ]);
-  };
-
-  const handleModuleRemoved = (id: string) => {
-    setPlacedModules((prev) => prev.filter((module) => module.id !== id));
-  };
-
-  const handleModuleRotated = (id: string) => {
-    setPlacedModules((prev) =>
-      prev.map((module) =>
-        module.id === id
-          ? { ...module, rotation: (module.rotation + 90) % 360 }
-          : module
-      )
-    );
-  };
 
   // Compute unique types for the Select
   const moduleTypes = Array.from(
@@ -139,13 +105,18 @@ function App() {
             Math.round(latlng.lat),
             Math.round(latlng.lng),
           ];
+          const module = loadedModules.find((m) => m.id === activeModuleId);
           setTEMPORARY_REMOVE_SOON_activeModules((prev) => [
             ...prev,
             {
               id: prev.length > 0 ? prev[prev.length - 1].id + 1 : 1,
               x: intCoords[0],
               y: intCoords[1],
-              module: Number(activeModuleId),
+              module_details: {
+                id: Math.random(),
+                name: module?.name ?? "Hardcoded Foobar",
+                attributes: module?.attributes ?? {},
+              },
             },
           ]);
         }
@@ -169,10 +140,7 @@ function App() {
             <div className="flex-1 bg-gradient-to-br from-background via-muted to-background">
               <RoomVisualization
                 roomDimensions={roomDimensions}
-                placedModules={placedModules}
                 modules={loadedModules}
-                onModuleRemoved={handleModuleRemoved}
-                onModuleRotated={handleModuleRotated}
                 mapRef={mapRef}
                 TEMPORARY_REMOVE_SOON_activeModules={
                   TEMPORARY_REMOVE_SOON_activeModules
@@ -233,11 +201,7 @@ function App() {
                 <Separator className="mt-5 bg-border" />
               </div>
               <ScrollArea className="h-[200px]">
-                <ModuleLibrary
-                  modules={filteredModules}
-                  onModulePlaced={handleModulePlaced}
-                  activeModuleId={activeModuleId}
-                />
+                <ModuleLibrary modules={filteredModules} />
               </ScrollArea>
             </aside>
           </div>

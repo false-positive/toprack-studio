@@ -1,7 +1,7 @@
 import { useEffect } from "react";
-import { MapContainer, Polyline, useMap, Marker } from "react-leaflet";
+import { MapContainer, Polyline, useMap, Rectangle } from "react-leaflet";
 import L from "leaflet";
-import type { Module } from "../../types";
+import type { ActiveModule, Module } from "../../types";
 import PlacedModule from "./PlacedModule";
 import WallDimensions from "./WallDimensions";
 import "leaflet/dist/leaflet.css";
@@ -23,12 +23,7 @@ interface RoomVisualizationProps {
   onModuleRemoved: (id: string) => void;
   onModuleRotated: (id: string) => void;
   mapRef: React.MutableRefObject<L.Map | null>;
-  TEMPORARY_REMOVE_SOON_activeModules: Array<{
-    id: number;
-    x: number;
-    y: number;
-    module: number;
-  }>;
+  TEMPORARY_REMOVE_SOON_activeModules: Array<ActiveModule>;
 }
 
 // Component to handle map events and interactions
@@ -53,12 +48,10 @@ function MapEventHandler() {
 
 export default function RoomVisualization({
   roomDimensions,
-  placedModules,
-  modules,
   onModuleRemoved,
   onModuleRotated,
-  mapRef,
   TEMPORARY_REMOVE_SOON_activeModules,
+  mapRef,
 }: RoomVisualizationProps) {
   const { setNodeRef } = useDroppable({
     id: "room",
@@ -95,9 +88,11 @@ export default function RoomVisualization({
         style={{ background: "#18181b" }}
         attributionControl={false}
         whenReady={
-          ((event) => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ((event: any) => {
             mapRef.current = event.target;
             event.target.fitBounds(bounds);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
           }) as any
         }
       >
@@ -115,39 +110,11 @@ export default function RoomVisualization({
         <WallDimensions walls={roomDimensions.walls} />
 
         {/* Placed modules */}
-        {placedModules.map((placedModule) => {
-          const moduleData = modules.find(
-            (m) => m.id === placedModule.moduleId
-          );
-          if (!moduleData) return null;
-
+        {TEMPORARY_REMOVE_SOON_activeModules.map((activeModule) => {
           return (
-            <PlacedModule
-              key={placedModule.id}
-              id={placedModule.id}
-              position={placedModule.position}
-              rotation={placedModule.rotation}
-              module={moduleData}
-              onRemove={onModuleRemoved}
-              onRotate={onModuleRotated}
-            />
+            <PlacedModule key={activeModule.id} activeModule={activeModule} />
           );
         })}
-
-        {/* TEMPORARY_REMOVE_SOON: activeModules as grid-aligned 1x1 squares with module number */}
-        {TEMPORARY_REMOVE_SOON_activeModules.map((marker) => (
-          <Marker
-            key={`TEMPORARY_REMOVE_SOON_${marker.id}`}
-            position={[marker.x, marker.y]}
-            icon={L.divIcon({
-              html: `<div style="width: 20px; height: 20px; background: #fbbf24; color: #18181b; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid #92400e; border-radius: 2px;">${marker.module}</div>`,
-              className: "",
-              iconSize: [20, 20],
-              iconAnchor: [10, 10],
-            })}
-            interactive={false}
-          />
-        ))}
 
         {/* Event handlers */}
         <MapEventHandler />

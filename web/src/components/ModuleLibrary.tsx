@@ -3,14 +3,9 @@ import ModuleCard from "./ModuleCard";
 
 interface ModuleLibraryProps {
   modules: Module[];
-  onModulePlaced: (moduleId: string, position: [number, number]) => void;
-  activeModuleId?: string | null;
 }
 
-export default function ModuleLibrary({
-  modules,
-  activeModuleId,
-}: ModuleLibraryProps) {
+export default function ModuleLibrary({ modules }: ModuleLibraryProps) {
   return (
     <div className="flex flex-col gap-4">
       {modules.length > 0 ? (

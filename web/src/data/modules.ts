@@ -6,7 +6,7 @@ export async function fetchModules(): Promise<Module[]> {
   const response = await fetch(`${API_BASE_URL}/api/modules/`);
   if (!response.ok) throw new Error("Failed to fetch modules");
   const json = await response.json();
-  return json.data.map((mod: any) => {
+  return json.data.map((mod: Module) => {
     // Pick the first numeric attribute as amount/unit for display
     let unit = "";
     let amount = 0;
@@ -16,7 +16,10 @@ export async function fetchModules(): Promise<Module[]> {
       );
       if (firstKey) {
         unit = firstKey;
-        amount = mod.attributes[firstKey];
+        const amountIdk = mod.attributes[firstKey].amount;
+        if (typeof amountIdk === "number") {
+          amount = amountIdk;
+        }
       }
     }
     const dims = getModuleDimensions(mod.name);
@@ -24,17 +27,18 @@ export async function fetchModules(): Promise<Module[]> {
       id: String(mod.id),
       name: mod.name,
       type: getModuleType(mod.name),
-      width: mod.attributes?.Space_X?.value || dims.width,
-      depth: mod.attributes?.Space_Y?.value || dims.depth,
+      width: mod.attributes?.Space_X?.amount || dims.width,
+      depth: mod.attributes?.Space_Y?.amount || dims.depth,
       height: dims.height,
-      power: mod.attributes?.Usable_Power?.value || 0,
-      weight: mod.attributes?.Weight?.value || 0,
+      power: mod.attributes?.Usable_Power?.amount || 0,
+      weight: mod.attributes?.Weight?.amount || 0,
       color: getModuleColor(mod.name),
       icon: undefined,
-      isInput: mod.is_input,
-      isOutput: mod.is_output,
+      isInput: mod.attributes?.is_input,
+      isOutput: mod.attributes?.is_output,
       unit,
       amount,
+      attributes: mod.attributes,
     };
   });
 }
