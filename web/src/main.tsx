@@ -1,4 +1,4 @@
-import "@fontsource-variable/geist";
+import "@fontsource-variable/geist/index.css";
 
 import React from "react";
 import ReactDOM from "react-dom/client";
