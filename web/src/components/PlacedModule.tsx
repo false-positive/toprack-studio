@@ -1,8 +1,7 @@
-import { Rectangle, Popup, Marker } from "react-leaflet";
-import type { ActiveModule } from "../../types";
 import { getModuleColor } from "@/data/modules";
 import L from "leaflet";
-import { getContrastColor } from "./ModuleCard";
+import { Marker, Popup, Rectangle } from "react-leaflet";
+import type { ActiveModule } from "../../types";
 
 interface PlacedModuleProps {
   activeModule: ActiveModule;
