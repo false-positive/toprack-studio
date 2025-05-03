@@ -20,8 +20,354 @@ import { DndContext, DragOverlay } from "@dnd-kit/core";
 import ModuleCard from "./components/ModuleCard";
 import L from "leaflet";
 import { ActiveModule } from "types";
+import { Route, Routes } from "react-router";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@/components/ui/popover";
+import { CardHeader, CardTitle } from "@/components/ui/card";
+import { Pencil, Plus, Trash2, MoreVertical } from "lucide-react";
 
 function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<SplashScreen />} />
+      <Route path="/projects/:projectId" element={<EditorPage />} />
+    </Routes>
+  );
+}
+
+function SplashScreen() {
+  // For demo: local state for projects
+  const [projects, setProjects] = useState([
+    { id: 1, name: "Project 1" },
+    { id: 2, name: "Project 2" },
+    { id: 3, name: "Project 3" },
+    { id: 4, name: "Project 4" },
+    { id: 5, name: "Project 5" },
+  ]);
+  const [newProjectDialogOpen, setNewProjectDialogOpen] = useState(false);
+  const [renameDialogOpen, setRenameDialogOpen] = useState<number | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState<number | null>(null);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [renameValue, setRenameValue] = useState("");
+
+  function handleCreateProject() {
+    if (newProjectName.trim()) {
+      setProjects((prev) => [
+        ...prev,
+        { id: Date.now(), name: newProjectName.trim() },
+      ]);
+      setNewProjectName("");
+      setNewProjectDialogOpen(false);
+    }
+  }
+
+  function handleRenameProject(id: number) {
+    setProjects((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, name: renameValue } : p))
+    );
+    setRenameDialogOpen(null);
+    setRenameValue("");
+  }
+
+  function handleDeleteProject(id: number) {
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    setDeleteDialogOpen(null);
+  }
+
+  // Split projects: first 2 are cards, rest are in the list
+  const cardProjects = projects.slice(0, 2);
+  const listProjects = projects.slice(2);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
+      <div
+        className="w-full max-w-2xl mx-auto flex flex-col gap-2 justify-center"
+        style={{ minHeight: "100vh" }}
+      >
+        <header className="flex flex-col items-center gap-1 mt-6 mb-2">
+          <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-2 mb-1">
+            <Sparkles className="h-6 w-6" />
+          </span>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Welcome to Data Center Designer
+          </h1>
+          <p className="text-muted-foreground text-base">
+            Design, manage, and visualize your data center projects.
+          </p>
+        </header>
+        {/* Card row: 2 most recent + add */}
+        <div className="flex justify-center w-full">
+          <div className="flex flex-row gap-4">
+            {cardProjects.map((project) => (
+              <Card
+                key={project.id}
+                className="w-64 min-w-[240px] flex-shrink-0 relative group"
+              >
+                <div className="aspect-video bg-muted rounded-lg flex items-center justify-center mb-3">
+                  <span className="text-muted-foreground text-5xl">
+                    <Sparkles className="w-12 h-12 opacity-30" />
+                  </span>
+                </div>
+                <CardHeader className="flex flex-row items-center justify-between px-4 pt-0 pb-2">
+                  <CardTitle className="truncate max-w-[120px]">
+                    {project.name}
+                  </CardTitle>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="hover:bg-accent"
+                      >
+                        <MoreVertical className="w-5 h-5" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="end"
+                      sideOffset={8}
+                      className="min-w-[140px] p-1"
+                    >
+                      <button
+                        className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                        onClick={() => {
+                          setRenameDialogOpen(project.id);
+                          setRenameValue(project.name);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4 mr-2" /> Rename
+                      </button>
+                      <button
+                        className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground text-destructive"
+                        onClick={() => setDeleteDialogOpen(project.id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" /> Delete
+                      </button>
+                    </PopoverContent>
+                  </Popover>
+                </CardHeader>
+                <CardContent className="px-4 pb-4">
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      Last opened: just now
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full mt-2"
+                    >
+                      Open Project
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {/* Add New Project Card */}
+            <Card
+              className="w-64 min-w-[240px] flex-shrink-0 flex flex-col items-center justify-center cursor-pointer hover:shadow-lg transition-shadow border-dashed border-2 border-primary/40 bg-muted/50"
+              onClick={() => setNewProjectDialogOpen(true)}
+            >
+              <div className="flex flex-col items-center justify-center flex-1 py-8">
+                <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-3 mb-2">
+                  <Plus className="h-8 w-8" />
+                </span>
+                <span className="text-lg font-semibold">
+                  Create New Project
+                </span>
+              </div>
+            </Card>
+          </div>
+        </div>
+        {/* Minimalist List for remaining projects */}
+        {listProjects.length > 0 && (
+          <div className="mt-4 flex flex-col items-center w-full">
+            <div className="text-xs text-muted-foreground font-semibold px-2 pb-1 w-full max-w-xl mx-auto">
+              Other Projects
+            </div>
+            <ScrollArea className="max-h-40 w-full max-w-xl mx-auto rounded-md">
+              <table className="w-full text-xs">
+                <tbody>
+                  {listProjects.map((project) => (
+                    <tr
+                      key={project.id}
+                      className="border-b border-border hover:bg-muted/40 group transition-colors"
+                    >
+                      <td className="px-2 py-1 truncate max-w-[120px] align-middle font-medium">
+                        {project.name}
+                      </td>
+                      <td className="px-2 py-1 text-[11px] text-muted-foreground align-middle whitespace-nowrap">
+                        Last opened: just now
+                      </td>
+                      <td className="px-1 py-1 align-middle text-right">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="hover:bg-accent"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent
+                            align="end"
+                            sideOffset={8}
+                            className="min-w-[100px] p-1"
+                          >
+                            <button
+                              className="flex w-full items-center gap-2 rounded px-2 py-1 text-xs hover:bg-accent hover:text-accent-foreground transition-colors"
+                              onClick={() => {
+                                setRenameDialogOpen(project.id);
+                                setRenameValue(project.name);
+                              }}
+                            >
+                              <Pencil className="w-4 h-4 mr-2" /> Rename
+                            </button>
+                            <button
+                              className="flex w-full items-center gap-2 rounded px-2 py-1 text-xs hover:bg-accent hover:text-accent-foreground text-destructive"
+                              onClick={() => setDeleteDialogOpen(project.id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" /> Delete
+                            </button>
+                          </PopoverContent>
+                        </Popover>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </ScrollArea>
+          </div>
+        )}
+      </div>
+      {/* New Project Dialog */}
+      <Dialog
+        open={newProjectDialogOpen}
+        onOpenChange={setNewProjectDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Project</DialogTitle>
+            <DialogDescription>
+              Enter a name for your new project.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            placeholder="Project name"
+            value={newProjectName}
+            onChange={(e) => setNewProjectName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleCreateProject();
+            }}
+          />
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setNewProjectDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleCreateProject}
+              disabled={!newProjectName.trim()}
+            >
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Rename Project Dialog */}
+      <Dialog
+        open={renameDialogOpen !== null}
+        onOpenChange={() => setRenameDialogOpen(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Project</DialogTitle>
+            <DialogDescription>
+              Enter a new name for your project.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            autoFocus
+            placeholder="New project name"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && renameDialogOpen !== null)
+                handleRenameProject(renameDialogOpen);
+            }}
+          />
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setRenameDialogOpen(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={() =>
+                renameDialogOpen !== null &&
+                handleRenameProject(renameDialogOpen)
+              }
+              disabled={!renameValue.trim()}
+            >
+              Rename
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Delete Project Dialog */}
+      <Dialog
+        open={deleteDialogOpen !== null}
+        onOpenChange={() => setDeleteDialogOpen(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this project? This action cannot
+              be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="secondary"
+              onClick={() => setDeleteDialogOpen(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() =>
+                deleteDialogOpen !== null &&
+                handleDeleteProject(deleteDialogOpen)
+              }
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function EditorPage() {
   const { data: loadedModules = [], isLoading: modulesLoading } = useQuery({
     queryKey: ["modules"],
     queryFn: fetchModules,
@@ -50,10 +396,9 @@ function App() {
     queryFn: () => fetchActiveModules(),
   });
 
-  const [
-    TEMPORARY_REMOVE_SOON_activeModules,
-    setTEMPORARY_REMOVE_SOON_activeModules,
-  ] = useState<Array<ActiveModule>>([]);
+  const [, setTEMPORARY_REMOVE_SOON_activeModules] = useState<
+    Array<ActiveModule>
+  >([]);
 
   useEffect(() => {
     function handleMouseMove(e: MouseEvent) {
