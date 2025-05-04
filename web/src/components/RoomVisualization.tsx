@@ -8,6 +8,8 @@ import type { ActiveModule, Module } from "../../types";
 import PlacedModule from "./PlacedModule";
 import { Button } from "./ui/button";
 import WallDimensions from "./WallDimensions";
+import { useAtomValue } from "jotai";
+import { selectedToolAtom } from "@/projectsAtom";
 
 interface RoomVisualizationProps {
   roomDimensions: {
@@ -54,6 +56,29 @@ export default function RoomVisualization({
   const { setNodeRef } = useDroppable({
     id: "room",
   });
+
+  // Get the currently selected tool
+  const selectedTool = useAtomValue(selectedToolAtom);
+
+  // Map tool to cursor style
+  const toolToCursor: Record<string, string> = {
+    hand: "grab",
+    select: "pointer",
+    move: "move",
+    crop: "crosshair",
+    brush: "cell",
+    eraser: "not-allowed",
+    shapes: "copy",
+  };
+  const mapCursor = toolToCursor[selectedTool] || "grab";
+
+  // Imperatively update the map container's cursor when the tool changes
+  useEffect(() => {
+    if (mapRef.current) {
+      const container = mapRef.current.getContainer();
+      container.style.cursor = mapCursor;
+    }
+  }, [mapCursor, mapRef]);
 
   // Convert walls to polylines
   const wallPolylines = roomDimensions.walls.map((wall, index) => {
@@ -112,7 +137,7 @@ export default function RoomVisualization({
         scrollWheelZoom={true}
         crs={L.CRS.Simple}
         className="h-full w-full"
-        style={{ background: "#18181b" }}
+        style={{ background: "#18181b", cursor: mapCursor }}
         attributionControl={false}
         zoomControl={false}
         whenReady={

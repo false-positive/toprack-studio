@@ -14,7 +14,8 @@ import {
   Shapes,
   Move,
 } from "lucide-react";
-import { useState } from "react";
+import { useAtom } from "jotai";
+import { selectedToolAtom } from "@/projectsAtom";
 
 const TOOLS = [
   { value: "hand", icon: Hand, label: "Hand (Move)" },
@@ -30,8 +31,8 @@ export default function Toolbar({
   className = "",
   ...props
 }: React.HTMLAttributes<HTMLElement>) {
-  // Only one tool can be selected at a time, default to 'hand'
-  const [selected, setSelected] = useState<string>("hand");
+  // Use global atom for selected tool
+  const [selected, setSelected] = useAtom(selectedToolAtom);
 
   return (
     <aside

@@ -46,7 +46,6 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { Link, Route, Routes, useNavigate, useParams } from "react-router";
 import LLogo from "./components/LLogo";
-import ModuleCard from "./components/ModuleCard";
 import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
 import Toolbar from "./components/Toolbar";
@@ -1334,20 +1333,46 @@ function EditorPage() {
         </main>
       </div>
       <DragOverlay>
-        {activeModuleId ? (
-          <div className="opacity-80">
-            {(() => {
+        {activeModuleId
+          ? (() => {
               const module = loadedModules.find((m) => m.id === activeModuleId);
-              return module ? (
-                <ModuleCard
-                  module={module}
-                  draggable={false}
-                  highlight={true}
-                />
-              ) : null;
-            })()}
-          </div>
-        ) : null}
+              if (!module) return null;
+              // Generate abbreviated label (same as PlacedModule)
+              const label = module.name
+                .split(/[ _-]/g)
+                .map((word) =>
+                  word.match(/[0-9]+/)
+                    ? ` ${word}`
+                    : word.charAt(0).toUpperCase()
+                )
+                .join("");
+              return (
+                <div
+                  className="ako-label"
+                  style={{
+                    color: "#fff",
+                    background: module.color || "#222",
+                    borderRadius: 8,
+                    fontWeight: 700,
+                    fontSize: "1.25rem",
+                    padding: "0.5rem 1.25rem",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    pointerEvents: "none",
+                    userSelect: "none",
+                    border: "2px solid #fff",
+                    opacity: 0.95,
+                    letterSpacing: "0.04em",
+                    transform: "translate(-50%, -50%)",
+                  }}
+                >
+                  {label}
+                </div>
+              );
+            })()
+          : null}
       </DragOverlay>
     </DndContext>
   );
