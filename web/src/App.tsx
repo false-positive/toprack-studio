@@ -35,10 +35,13 @@ import Toolbar from "./components/Toolbar";
 import { Input } from "./components/ui/input";
 import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarShortcut, MenubarTrigger } from "./components/ui/menubar";
 import { addActiveModule, deleteActiveModule, fetchActiveModules, fetchModules, fetchValidationResults } from "./data/modules";
+import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarShortcut, MenubarTrigger } from "./components/ui/menubar";
+import { addActiveModule, deleteActiveModule, fetchActiveModules, fetchDataCenterDetails, fetchModules, fetchValidationResults } from "./data/modules";
 import { projectsAtom } from "./projectsAtom";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { ComponentSelectorPanel } from "@/components/ComponentSelectorPanel";
 
 // Units type for measurement units
 interface Units {
@@ -83,6 +86,74 @@ function SplashScreen() {
     const [renameValue, setRenameValue] = useState("");
     const [showVRStep, setShowVRStep] = useState(false);
     const navigate = useNavigate();
+
+    // Mock data for module libraries and rulesets
+    const mockLibraries = [
+        {
+            id: 1,
+            name: "Standard Library",
+            description: "Default Siemens modules",
+            icon: <BookOpen className="w-8 h-8 text-primary" />,
+        },
+        {
+            id: 2,
+            name: "Custom Library",
+            description: "Your custom imported modules",
+            icon: <BookOpen className="w-8 h-8 text-secondary" />,
+        },
+    ];
+    const mockRulesets = [
+        {
+            id: 1,
+            name: "Standard Rules",
+            description: "Default Siemens ruleset",
+            icon: <FileText className="w-8 h-8 text-primary" />,
+        },
+        {
+            id: 2,
+            name: "Green Rules",
+            description: "Eco-friendly constraints",
+            icon: <FileText className="w-8 h-8 text-green-600" />,
+        },
+    ];
+    // Units state
+    const [unitsOpen, setUnitsOpen] = useState(false);
+    const [units, setUnits] = useState({
+        distance: "m",
+        currency: "EUR",
+        water: "L",
+        power: "kW",
+    });
+    // Multi-step dialog state
+    const [projectStep, setProjectStep] = useState(0);
+    const [selectedLibrary, setSelectedLibrary] = useState<number | null>(null);
+    const [selectedRuleset, setSelectedRuleset] = useState<number | null>(null);
+    const { data: currentDisplayResponse } = useQuery({
+        queryKey: ["currentDisplay"],
+        queryFn: () =>
+            fetch(`${import.meta.env.VITE_API_BASE_URL}/api/display-control/`).then(
+                (res) =>
+                    res.json() as Promise<{
+                        data: {
+                            current_display: "website" | "vr";
+                        };
+                    }>
+            ),
+    });
+    const currentDisplay = currentDisplayResponse?.data?.current_display;
+
+    const [projectId, setProjectId] = useState<number | null>(null);
+    const { data: dataCenterDetails } = useQuery({
+        queryKey: ["dataCenterDetails", projectId],
+        queryFn: () => fetchDataCenterDetails(Number(projectId)),
+        enabled: !!projectId,
+    });
+    const currentDataCenterSize = dataCenterDetails?.data
+        ? {
+              width: dataCenterDetails.data.width,
+              height: dataCenterDetails.data.height,
+          }
+        : null;
 
     // Mock data for module libraries and rulesets
     const mockLibraries = [
@@ -176,9 +247,9 @@ function SplashScreen() {
             <div className="w-full max-w-2xl mx-auto flex flex-col gap-2 justify-center" style={{ minHeight: "100vh" }}>
                 <header className="flex flex-col items-center gap-1 mt-6 mb-2">
                     <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-2 mb-1">
-                        <LLogo className="size-15" />
+                        <LLogo className="size-6" />
                     </span>
-                    <h1 className="text-2xl font-bold tracking-tight">Welcome to TopRack Studio</h1>
+                    <h1 className="text-2xl font-bold tracking-tight">Welcome to Data Center Designer</h1>
                     <p className="text-muted-foreground text-base">Design, manage, and visualize your data center projects.</p>
                 </header>
                 {/* Card row: 2 most recent + add */}
@@ -443,6 +514,7 @@ function SplashScreen() {
                                             await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/display-control/toggle/`);
                                             if (!resp.ok) throw new Error("Failed to initialize values");
                                             const newId = (await resp.json()).data.id;
+                                            setProjectId(newId);
                                             setProjects((prev) => [
                                                 ...prev,
                                                 {
@@ -485,10 +557,11 @@ function SplashScreen() {
                         </div>
                         <div className="flex flex-col items-center gap-2 mt-4">
                             <span className="animate-pulse text-primary text-2xl font-semibold">Waiting for VR scan...</span>
-                            {/* TEMPORARY OVERRIDE BUTTON - REMOVE BEFORE PRODUCTION */}
-                            <Button variant="outline" className="mt-6" onClick={() => pendingVRProjectId && handleBypassVRStep(pendingVRProjectId)}>
-                                Temporary: Skip VR Step
-                            </Button>
+                            {!!currentDataCenterSize && (
+                                <Button variant="outline" className="mt-6" onClick={() => pendingVRProjectId && handleBypassVRStep(pendingVRProjectId)}>
+                                    Open Editor
+                                </Button>
+                            )}
                         </div>
                     </DialogContent>
                 </Dialog>
@@ -759,7 +832,7 @@ function EditorPage() {
                     <div className="flex flex-col items-start w-full px-8 pt-2 pb-0 h-full">
                         <div className="flex items-center gap-3 mb-1">
                             <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-1.5">
-                                <LLogo className="size-8" />
+                                <LLogo className="size-6" />
                             </span>
                             <h1 className="text-base font-semibold tracking-tight">{currentProject ? currentProject.name : "Data Center Editor"}</h1>
                         </div>
@@ -1011,7 +1084,7 @@ function EditorPage() {
                                     </aside>
                                 </ResizablePanel>
                                 <ResizableHandle withHandle />
-                                {/* Module Library Panel (bottom, larger half) */}
+                                {/* Module Library Panel (middle) */}
                                 <ResizablePanel defaultSize={60} minSize={40}>
                                     <aside className="h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6 bg-card/90 border-l border-border rounded-b-lg">
                                         <div className="mb-6">
@@ -1056,6 +1129,13 @@ function EditorPage() {
                                         <ScrollArea className="h-[200px]">
                                             <ModuleLibrary modules={filteredModules} />
                                         </ScrollArea>
+                                    </aside>
+                                </ResizablePanel>
+                                <ResizableHandle withHandle />
+                                {/* Component Selector Panel (bottom, small by default, expandable) */}
+                                <ResizablePanel defaultSize={18} minSize={10} maxSize={40}>
+                                    <aside className="h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6 bg-card/90 border-l border-border rounded-b-lg">
+                                        <ComponentSelectorPanel />
                                     </aside>
                                 </ResizablePanel>
                             </ResizablePanelGroup>
