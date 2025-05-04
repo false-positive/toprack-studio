@@ -34,8 +34,6 @@ import RoomVisualization from "./components/RoomVisualization";
 import Toolbar from "./components/Toolbar";
 import { Input } from "./components/ui/input";
 import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarShortcut, MenubarTrigger } from "./components/ui/menubar";
-import { addActiveModule, deleteActiveModule, fetchActiveModules, fetchModules, fetchValidationResults } from "./data/modules";
-import { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarShortcut, MenubarTrigger } from "./components/ui/menubar";
 import { addActiveModule, deleteActiveModule, fetchActiveModules, fetchDataCenterDetails, fetchModules, fetchValidationResults } from "./data/modules";
 import { projectsAtom } from "./projectsAtom";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
@@ -154,48 +152,6 @@ function SplashScreen() {
               height: dataCenterDetails.data.height,
           }
         : null;
-
-    // Mock data for module libraries and rulesets
-    const mockLibraries = [
-        {
-            id: 1,
-            name: "Standard Library",
-            description: "Default Siemens modules",
-            icon: <BookOpen className="w-8 h-8 text-primary" />,
-        },
-        {
-            id: 2,
-            name: "Custom Library",
-            description: "Your custom imported modules",
-            icon: <BookOpen className="w-8 h-8 text-secondary" />,
-        },
-    ];
-    const mockRulesets = [
-        {
-            id: 1,
-            name: "Standard Rules",
-            description: "Default Siemens ruleset",
-            icon: <FileText className="w-8 h-8 text-primary" />,
-        },
-        {
-            id: 2,
-            name: "Green Rules",
-            description: "Eco-friendly constraints",
-            icon: <FileText className="w-8 h-8 text-green-600" />,
-        },
-    ];
-    // Units state
-    const [unitsOpen, setUnitsOpen] = useState(false);
-    const [units, setUnits] = useState({
-        distance: "m",
-        currency: "EUR",
-        water: "L",
-        power: "kW",
-    });
-    // Multi-step dialog state
-    const [projectStep, setProjectStep] = useState(0);
-    const [selectedLibrary, setSelectedLibrary] = useState<number | null>(null);
-    const [selectedRuleset, setSelectedRuleset] = useState<number | null>(null);
 
     useEffect(() => {
         console.log(units);
