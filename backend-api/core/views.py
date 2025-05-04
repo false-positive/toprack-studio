@@ -176,7 +176,7 @@ class ActiveModuleViewSet(viewsets.ModelViewSet):
                 data_center = DataCenter.get_default()
             
             logger.info(f"Recalculating values after creating active module {active_module.id}")
-            DataCenterValueService.recalculate_all_values(data_center)
+            DataCenterValueService.force_recalculate_values(data_center)
             
             serializer = self.get_serializer(active_module)
             headers = self.get_success_headers(serializer.data)
@@ -692,25 +692,60 @@ class DataCenterComponentViewSet(viewsets.ModelViewSet):
     serializer_class = DataCenterComponentSerializer
     
     def get_queryset(self):
-        queryset = DataCenterComponent.objects.all()
-        
+        """
+        This view should return only components for the specified data center.
+        If no data center is specified, return an empty queryset.
+        """
         data_center_id = self.request.query_params.get('data_center', None)
-        if data_center_id:
-            try:
-                data_center = DataCenter.objects.get(id=data_center_id)
-                queryset = queryset.filter(data_center=data_center)
-            except DataCenter.DoesNotExist:
-                pass
         
-        return queryset
+        if not data_center_id:
+            # No data center specified, return empty queryset
+            return DataCenterComponent.objects.none()
+        
+        try:
+            # Convert to integer and filter directly by data_center_id
+            data_center_id = int(data_center_id)
+            
+            # Get all components
+            all_components = DataCenterComponent.objects.all()
+            print(f"Total components before filtering: {all_components.count()}")
+            
+            # Filter by data_center_id
+            filtered_components = all_components.filter(data_center_id=data_center_id)
+            print(f"Components after filtering by data_center_id={data_center_id}: {filtered_components.count()}")
+            
+            # Debug: Print all component IDs and their data center IDs
+            for comp in all_components:
+                print(f"Component ID: {comp.id}, Name: {comp.name}, Data Center ID: {comp.data_center_id}")
+            
+            return filtered_components
+        except ValueError:
+            # Invalid data center ID format
+            print(f"Invalid data center ID format: {data_center_id}")
+            return DataCenterComponent.objects.none()
     
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
+        
+        # Check if data_center parameter was provided but no results found
+        data_center_id = request.query_params.get('data_center', None)
+        if data_center_id and not queryset.exists():
+            try:
+                # Verify data center exists
+                DataCenter.objects.get(id=data_center_id)
+                # Data center exists but no components found
+                message = f'No components found for data center ID {data_center_id}'
+            except DataCenter.DoesNotExist:
+                # Data center doesn't exist
+                message = f'Data center with ID {data_center_id} not found'
+        else:
+            message = 'Data center components retrieved successfully'
+        
         serializer = self.get_serializer(queryset, many=True)
         return Response({
             'status': 'success',
             'status_code': status.HTTP_200_OK,
-            'message': 'Data center components retrieved successfully',
+            'message': message,
             'data': serializer.data
         })
     
@@ -784,16 +819,20 @@ def validate_component_values(request, component_id=None):
     else:
         logger.info("Getting component IDs from DataCenterValues")
         try:
-            # Use filter() instead of values_list() followed by get() to avoid MultipleObjectsReturned
-            component_ids = DataCenterValue.objects.filter(
-                data_center=data_center
-            ).exclude(
-                component=None
-            ).values_list('component_id', flat=True).distinct()
+            # Get all DataCenterValue objects for this data center
+            data_center_values = DataCenterValue.objects.filter(data_center_id=data_center.pk)
+            logger.info(f"Found {data_center_values.count()} DataCenterValue objects for data center {data_center.id}")
             
-            logger.info(f"Found {len(component_ids)} distinct component IDs: {list(component_ids)}")
+            # Extract component_ids from these values
+            component_ids = data_center_values.values_list('component_id', flat=True)
+            logger.info(f"Extracted component_ids (with duplicates): {list(component_ids)}")
+            
+            # Remove duplicates
+            component_ids = component_ids.distinct()
+            logger.info(f"Distinct component_ids: {list(component_ids)}")
             
             components = DataCenterComponent.objects.filter(id__in=component_ids)
+            list_c = list(components)
             logger.info(f"Found {components.count()} components")
             
             if not components.exists():
@@ -884,7 +923,7 @@ def validate_component_values(request, component_id=None):
         })
     else:
         return Response({
-            "status": "error",
+            "status": "success",
             "status_code": status.HTTP_200_OK,
             "message": "Some specifications are not met",
             "components": component_serializer.data,
