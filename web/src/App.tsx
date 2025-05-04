@@ -204,57 +204,19 @@ function SplashScreen() {
     setDeleteDialogOpen(null);
   }
 
-  async function handleBypassVRStep() {
-    await fetch(
-      `${import.meta.env.VITE_API_BASE_URL}/api/display-control/toggle/`
-    );
-    setProjectStep(0);
-    setSelectedLibrary(null);
-    setSelectedRuleset(null);
-    setUnitsOpen(false);
-    setUnits({
-      distance: "m",
-      currency: "EUR",
-      water: "L",
-      power: "kW",
-    });
+  const [pendingVRProjectId, setPendingVRProjectId] = useState<number | null>(
+    null
+  );
+
+  async function handleBypassVRStep(newId: number) {
     try {
-      const resp = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/create-data-center/`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            name: newProjectName.concat(new Date().getTime().toString()),
-            _will_add_units_even_tho_this_field_is_ignored_by_the_backend:
-              units,
-          }),
-          headers: {
-            "Content-Type": "application/json",
-          },
-        }
-      );
-      if (!resp.ok) throw new Error("Failed to initialize values");
-      // Create new project locally
-      const newId = (await resp.json()).data.id;
-      setProjects((prev) => [
-        ...prev,
-        {
-          id: newId,
-          name: newProjectName || "Untitled Project",
-          lastOpenedAt: new Date().toISOString(),
-          library: selectedLibrary,
-          ruleset: selectedRuleset,
-          units,
-        },
-      ]);
-      setShowVRStep(false);
       await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/api/display-control/toggle/`
       );
       navigate(`/projects/${newId}`);
     } catch (e) {
       alert(
-        "Failed to initialize project: " + (e instanceof Error ? e.message : e)
+        "Failed to toggle VR display: " + (e instanceof Error ? e.message : e)
       );
     }
   }
@@ -630,9 +592,55 @@ function SplashScreen() {
                 </Button>
                 <Button
                   variant="default"
-                  onClick={() => {
-                    setShowVRStep(true);
-                    setNewProjectDialogOpen(false);
+                  onClick={async () => {
+                    try {
+                      const resp = await fetch(
+                        `${
+                          import.meta.env.VITE_API_BASE_URL
+                        }/api/create-data-center/`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify({
+                            name: newProjectName.concat(
+                              new Date().getTime().toString()
+                            ),
+                            _will_add_units_even_tho_this_field_is_ignored_by_the_backend:
+                              units,
+                          }),
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                        }
+                      );
+                      await fetch(
+                        `${
+                          import.meta.env.VITE_API_BASE_URL
+                        }/api/display-control/toggle/`
+                      );
+                      if (!resp.ok)
+                        throw new Error("Failed to initialize values");
+                      const newId = (await resp.json()).data.id;
+                      setProjects((prev) => [
+                        ...prev,
+                        {
+                          id: newId,
+                          name: newProjectName || "Untitled Project",
+                          lastOpenedAt: new Date().toISOString(),
+                          library: selectedLibrary,
+                          ruleset: selectedRuleset,
+                          units,
+                        },
+                      ]);
+                      setShowVRStep(true);
+                      setNewProjectDialogOpen(false);
+                      // Store the newId for use in VR step
+                      setPendingVRProjectId(newId);
+                    } catch (e) {
+                      alert(
+                        "Failed to initialize project: " +
+                          (e instanceof Error ? e.message : e)
+                      );
+                    }
                   }}
                 >
                   Create Project
@@ -667,7 +675,9 @@ function SplashScreen() {
               <Button
                 variant="outline"
                 className="mt-6"
-                onClick={handleBypassVRStep}
+                onClick={() =>
+                  pendingVRProjectId && handleBypassVRStep(pendingVRProjectId)
+                }
               >
                 Temporary: Skip VR Step
               </Button>
