@@ -87,12 +87,6 @@ TopRack Studio is a modern, immersive platform for designing made-to-order data 
 
 ---
 
-## 🤝 Contributing
-
-We welcome contributions! Please open an issue or pull request with your ideas, bug reports, or improvements.
-
----
-
 ## 💡 Inspiration
 
 TopRack Studio was built for the Siemens Energy challenge at the 2025 HackUPC hackathon to revolutionize how clients design and optimize data centers—bridging the gap between real-world spatial design and robust, data-driven constraint logic.
