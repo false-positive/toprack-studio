@@ -7,3 +7,12 @@ WARNING 2025-05-04 07:56:01,358 log Bad Request: /api/create-data-center/
 WARNING 2025-05-04 07:56:02,964 log Bad Request: /api/create-data-center/
 WARNING 2025-05-04 07:56:06,342 log Bad Request: /api/create-data-center/
 WARNING 2025-05-04 07:56:16,041 log Bad Request: /api/create-data-center/
+WARNING 2025-05-04 06:30:03,111 log Not Found: /api/validate-component-values/
+WARNING 2025-05-04 06:30:05,117 log Not Found: /api/validate-component-values/
+WARNING 2025-05-04 06:30:09,123 log Not Found: /api/validate-component-values/
+WARNING 2025-05-04 06:32:36,669 log Not Found: /api/datacenters/46/
+WARNING 2025-05-04 06:32:36,670 log Not Found: /api/validate-component-values/
+WARNING 2025-05-04 06:32:36,675 log Not Found: /api/validate-component-values/
+WARNING 2025-05-04 06:32:37,722 log Not Found: /api/validate-component-values/
+WARNING 2025-05-04 06:32:39,727 log Not Found: /api/validate-component-values/
+WARNING 2025-05-04 06:32:43,733 log Not Found: /api/validate-component-values/

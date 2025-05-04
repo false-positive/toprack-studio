@@ -5,15 +5,20 @@ import {
   DataCenterComponent,
 } from "../selectedComponentAtom";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@radix-ui/react-scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useParams } from "react-router";
 
 function fetchComponents(dataCenterId: number): Promise<DataCenterComponent[]> {
   return fetch(
     `${
       import.meta.env.VITE_API_BASE_URL
-    }/api/datacenter-components/?data_center_id=${dataCenterId}`
+    }/api/datacenter-components/?data_center=${dataCenterId}`
   )
     .then((res) => res.json())
     .then((data) => data.data);
@@ -43,23 +48,27 @@ export function ComponentSelectorPanel() {
         {error && (
           <div className="p-4 text-destructive">Error loading components.</div>
         )}
-        <ScrollArea className="flex-1">
-          <ul>
-            {components?.map((component) => (
-              <li key={component.id}>
-                <Button
-                  variant={
-                    selected?.id === component.id ? "default" : "outline"
-                  }
-                  className="w-full justify-start my-1"
-                  onClick={() => setSelected(component)}
-                >
+        <div className="flex-1 flex flex-col justify-center">
+          <Select
+            value={selected ? String(selected.id) : undefined}
+            onValueChange={(val) => {
+              const comp = components?.find((c) => String(c.id) === val);
+              if (comp) setSelected(comp);
+            }}
+            disabled={isLoading || !components}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a component..." />
+            </SelectTrigger>
+            <SelectContent>
+              {components?.map((component) => (
+                <SelectItem key={component.id} value={String(component.id)}>
                   {component.name}
-                </Button>
-              </li>
-            ))}
-          </ul>
-        </ScrollArea>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </CardContent>
     </Card>
   );

@@ -81,6 +81,7 @@ import {
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { CsvUploadDialog } from "./components/CsvUploadDialog";
 import { ComponentSelectorPanel } from "@/components/ComponentSelectorPanel";
+import { selectedComponentAtom } from "./selectedComponentAtom";
 
 // Units type for measurement units
 interface Units {
@@ -199,7 +200,6 @@ function SplashScreen() {
           }>
       ),
   });
-  const currentDisplay = currentDisplayResponse?.data?.current_display;
 
   const [projectId, setProjectId] = useState<number | null>(null);
   const { data: dataCenterDetails } = useQuery({
@@ -724,20 +724,17 @@ function SplashScreen() {
               <span className="animate-pulse text-primary text-2xl font-semibold">
                 Waiting for VR scan...
               </span>
-              {currentDisplay === "vr" &&
-                (currentDataCenterSize?.width > 0 ||
-                  currentDataCenterSize?.height > 0) && (
-                  <Button
-                    variant="outline"
-                    className="mt-6"
-                    onClick={() =>
-                      pendingVRProjectId &&
-                      handleBypassVRStep(pendingVRProjectId)
-                    }
-                  >
-                    Continue to Dashboard
-                  </Button>
-                )}
+              {!!currentDataCenterSize && (
+                <Button
+                  variant="outline"
+                  className="mt-6"
+                  onClick={() =>
+                    pendingVRProjectId && handleBypassVRStep(pendingVRProjectId)
+                  }
+                >
+                  Open Editor
+                </Button>
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -936,6 +933,8 @@ function EditorPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeModules?.data?.length]);
 
+  const [selectedComponent] = useAtom(selectedComponentAtom);
+
   const addModuleMutation = useMutation({
     mutationFn: async ({
       x,
@@ -951,6 +950,7 @@ function EditorPage() {
         y,
         moduleId,
         dataCenterId: Number(projectId),
+        dataCenterComponentId: selectedComponent?.id,
       });
     },
     onMutate: async (newModule) => {
