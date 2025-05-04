@@ -4,7 +4,7 @@
 
 ---
 
-![TopRack Studio Banner](https://unsplash.com/photos/M5tzZtFCOfs/download?ixid=M3wxMjA3fDB8MXxzZWFyY2h8Mnx8ZGF0YWNlbnRlcnxlbnwwfHx8fDE3NDYzMjM3MzV8MA&force=true)
+[![Watch the video](https://img.youtube.com/vi/tt8pcE6d2jo/maxresdefault.jpg)](./assets/)
 
 ---
 
