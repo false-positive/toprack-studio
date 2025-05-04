@@ -700,20 +700,17 @@ function SplashScreen() {
               <span className="animate-pulse text-primary text-2xl font-semibold">
                 Waiting for VR scan...
               </span>
-              {currentDisplay === "vr" &&
-                (currentDataCenterSize?.width > 0 ||
-                  currentDataCenterSize?.height > 0) && (
-                  <Button
-                    variant="outline"
-                    className="mt-6"
-                    onClick={() =>
-                      pendingVRProjectId &&
-                      handleBypassVRStep(pendingVRProjectId)
-                    }
-                  >
-                    Continue to Dashboard
-                  </Button>
-                )}
+              {currentDisplay === "vr" && !!currentDataCenterSize && (
+                <Button
+                  variant="outline"
+                  className="mt-6"
+                  onClick={() =>
+                    pendingVRProjectId && handleBypassVRStep(pendingVRProjectId)
+                  }
+                >
+                  Open Editor
+                </Button>
+              )}
             </div>
           </DialogContent>
         </Dialog>
