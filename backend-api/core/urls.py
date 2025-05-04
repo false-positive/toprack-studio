@@ -9,7 +9,8 @@ from .views import (
     initialize_values_from_components,
     debug_active_modules, toggle_display_control, 
     get_display_control, get_set_active_data_center,
-    get_all_data_centers, update_active_data_center_points
+    get_all_data_centers, update_active_data_center_points,
+    get_active_data_center_modules
 )
 
 router = DefaultRouter()
@@ -29,6 +30,7 @@ urlpatterns = [
     path('active-data-center/', get_set_active_data_center, name='active-data-center'),
     path('all-data-centers/', get_all_data_centers, name='all-data-centers'),
     path('update-active-data-center-points/', update_active_data_center_points, name='update-active-data-center-points'),
+    path('active-data-center-modules/', get_active_data_center_modules, name='active-data-center-modules'),
 
     # dev
     path('initialize-values-from-components/', initialize_values_from_components, name='initialize-values-from-components'),

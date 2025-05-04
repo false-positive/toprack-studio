@@ -1203,17 +1203,12 @@ def update_active_data_center_points(request):
         logger.info(f"Debug mode enabled. Request data: {request.data}")
     
     if not data_center_id:
-        try:
-            default_data_center = DataCenter.get_default()
-            data_center_id = default_data_center.id
-            logger.info(f"No active data center set, using default: {data_center_id}")
-        except Exception as e:
-            logger.error(f"Failed to get default data center: {str(e)}")
-            return Response({
-                "status": "error",
-                "status_code": status.HTTP_404_NOT_FOUND,
-                "message": "No active data center set and no default data center found"
-            }, status=status.HTTP_404_NOT_FOUND)
+        logger.error("No active data center set")
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "message": "No active data center set"
+        }, status=status.HTTP_404_NOT_FOUND)
     
     try:
         data_center = DataCenter.objects.get(id=data_center_id)
@@ -1281,3 +1276,72 @@ def update_active_data_center_points(request):
             "status_code": status.HTTP_400_BAD_REQUEST,
             "message": str(e)
         }, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def get_active_data_center_modules(request):
+    """Debug endpoint to get all active modules for the currently active data center"""
+    logger.info("Getting active modules for active data center")
+    
+    data_center_id = active_data_center.get('id')
+    debug = request.query_params.get('debug', 'false').lower() == 'true'
+    
+    if debug:
+        logger.info(f"Debug mode enabled. Query params: {request.query_params}")
+    
+    if not data_center_id:
+        logger.error("No active data center set")
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "message": "No active data center set"
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    try:
+        data_center = DataCenter.objects.get(id=data_center_id)
+        if debug:
+            logger.info(f"Found active data center: {data_center.name} (ID: {data_center_id})")
+    except DataCenter.DoesNotExist:
+        logger.error(f"Data center with ID {data_center_id} not found")
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "message": f"Data center with ID {data_center_id} not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    # Get active modules for this data center
+    active_modules = ActiveModule.objects.filter(
+        models.Q(data_center=data_center) | 
+        models.Q(data_center_component__data_center=data_center)
+    ).select_related('module', 'data_center_component', 'point')
+    
+    if debug:
+        logger.info(f"Found {active_modules.count()} active modules for data center {data_center_id}")
+        for am in active_modules:
+            logger.info(f"Active module ID={am.id}, Module={am.module.name if am.module else 'None'}, "
+                       f"Component={am.data_center_component.name if am.data_center_component else 'None'}, "
+                       f"Position=({am.point.x if am.point else 'None'}, {am.point.y if am.point else 'None'})")
+    
+    serializer = ActiveModuleSerializer(active_modules, many=True)
+    
+    data_center_info = {
+        "id": data_center.id,
+        "name": data_center.name,
+        "width": data_center.space_x,
+        "height": data_center.space_y,
+        "points": []
+    }
+    
+    points = data_center.points.all().order_by('id')
+    data_center_info["points"] = [{"x": point.x, "y": point.y} for point in points]
+    
+    if debug:
+        logger.info(f"Data center points: {data_center_info['points']}")
+    
+    return Response({
+        "status": "success",
+        "status_code": status.HTTP_200_OK,
+        "message": f"Active modules for data center '{data_center.name}' retrieved successfully",
+        "data": serializer.data,
+        "data_center": data_center_info,
+        "count": active_modules.count()
+    })
