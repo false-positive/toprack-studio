@@ -184,7 +184,16 @@ export async function addActiveModule({
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error("Failed to add active module");
-  return response.json();
+  const payload = await response.json();
+  return {
+    ...payload,
+    data: {
+      ...payload.data,
+      // FIXME: dirty fix for coordinate mismatch
+      x: payload.data.y,
+      y: -payload.data.x,
+    },
+  };
 }
 
 export async function deleteActiveModule(
