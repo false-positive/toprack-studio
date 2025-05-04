@@ -8,7 +8,8 @@ from .views import (
     upload_warmth_image, get_warmth_image,
     initialize_values_from_components,
     debug_active_modules, toggle_display_control, 
-    get_display_control, get_set_active_data_center
+    get_display_control, get_set_active_data_center,
+    get_all_data_centers
 )
 
 router = DefaultRouter()
@@ -26,6 +27,7 @@ urlpatterns = [
     path('display-control/toggle/', toggle_display_control, name='toggle-display-control'),
     path('display-control/', get_display_control, name='get-display-control'),
     path('active-data-center/', get_set_active_data_center, name='active-data-center'),
+    path('all-data-centers/', get_all_data_centers, name='all-data-centers'),
 
     # dev
     path('initialize-values-from-components/', initialize_values_from_components, name='initialize-values-from-components'),

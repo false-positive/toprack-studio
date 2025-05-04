@@ -1169,3 +1169,24 @@ def get_set_active_data_center(request):
                 "name": data_center_name
             }
         })
+
+@api_view(['GET'])
+def get_all_data_centers(request):
+    """API endpoint to get all data centers"""
+    try:
+        data_centers = DataCenter.objects.all().order_by('name')
+        serializer = DataCenterSerializer(data_centers, many=True)
+        
+        return Response({
+            "status": "success",
+            "status_code": status.HTTP_200_OK,
+            "message": "All data centers retrieved successfully",
+            "data": serializer.data
+        })
+    except Exception as e:
+        logger.error(f"Error retrieving data centers: {str(e)}", exc_info=True)
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "message": f"Error retrieving data centers: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
