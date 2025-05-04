@@ -188,18 +188,6 @@ function SplashScreen() {
     setRulesetUploadOpen(false);
     setSelectedRuleset(3); // Setting this so that the next step is triggered
   };
-  const { data: currentDisplayResponse } = useQuery({
-    queryKey: ["currentDisplay"],
-    queryFn: () =>
-      fetch(`${import.meta.env.VITE_API_BASE_URL}/api/display-control/`).then(
-        (res) =>
-          res.json() as Promise<{
-            data: {
-              current_display: "website" | "vr";
-            };
-          }>
-      ),
-  });
 
   const [projectId, setProjectId] = useState<number | null>(null);
   const { data: dataCenterDetails } = useQuery({
@@ -881,7 +869,7 @@ function EditorPage() {
         // Convert points to walls (edges)
         const walls =
           points.length > 1
-            ? points.map((pt: { x: number; y: number }, i: number) => ({
+            ? points.map((_pt: { x: number; y: number }, i: number) => ({
                 start: [points[i].x, points[i].y] as [number, number],
                 end: [
                   points[(i + 1) % points.length].x,
