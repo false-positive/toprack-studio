@@ -1,0 +1,12 @@
+fileFormatVersion: 2
+guid: b45a470cf12d37441adce9856498520f
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - overlaySprite: {fileID: 21300000, guid: 54880e847d411164280f49838de27d6b, type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
