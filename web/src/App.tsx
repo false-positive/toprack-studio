@@ -244,10 +244,14 @@ function SplashScreen() {
 
   async function handleBypassVRStep(newId: number) {
     try {
-      await fetch(
+      const res = await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/api/display-control/toggle/`
-      );
-      navigate(`/projects/${newId}`);
+      ).then((res) => res.json());
+      if (res.data.current_display === "vr") {
+        return;
+      } else {
+        navigate(`/projects/${newId}`);
+      }
     } catch (e) {
       alert(
         "Failed to toggle VR display: " + (e instanceof Error ? e.message : e)
@@ -652,11 +656,19 @@ function SplashScreen() {
                         }
                       );
 
-                      await fetch(
+                      const currentState = await fetch(
                         `${
                           import.meta.env.VITE_API_BASE_URL
-                        }/api/display-control/toggle/`
+                        }/api/display-control/`
                       );
+                      const currentStateData = await currentState.json();
+                      if (currentStateData.data.current_display !== "vr") {
+                        await fetch(
+                          `${
+                            import.meta.env.VITE_API_BASE_URL
+                          }/api/display-control/toggle/`
+                        );
+                      }
                       if (!resp.ok)
                         throw new Error("Failed to initialize values");
                       const newId = (await resp.json()).data.id;
