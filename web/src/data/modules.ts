@@ -170,8 +170,8 @@ export async function addActiveModule({
   dataCenterId: number;
 }): Promise<ActiveModule> {
   const body: Record<string, unknown> = {
-    x,
-    y,
+    x: y,
+    y: x,
     module: moduleId,
     data_center: dataCenterId,
   };
@@ -184,16 +184,7 @@ export async function addActiveModule({
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error("Failed to add active module");
-  const payload = await response.json();
-  return {
-    ...payload,
-    data: {
-      ...payload.data,
-      // FIXME: dirty fix for coordinate mismatch
-      x: payload.data.y,
-      y: -payload.data.x,
-    },
-  };
+  return response.json();
 }
 
 export async function deleteActiveModule(
