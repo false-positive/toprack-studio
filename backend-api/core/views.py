@@ -1190,3 +1190,94 @@ def get_all_data_centers(request):
             "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
             "message": f"Error retrieving data centers: {str(e)}"
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+@api_view(['POST'])
+def update_active_data_center_points(request):
+    """Update the points of the currently active data center"""
+    logger.info("Updating points for active data center")
+    
+    data_center_id = active_data_center.get('id')
+    debug = request.query_params.get('debug', 'false').lower() == 'true'
+    
+    if debug:
+        logger.info(f"Debug mode enabled. Request data: {request.data}")
+    
+    if not data_center_id:
+        try:
+            default_data_center = DataCenter.get_default()
+            data_center_id = default_data_center.id
+            logger.info(f"No active data center set, using default: {data_center_id}")
+        except Exception as e:
+            logger.error(f"Failed to get default data center: {str(e)}")
+            return Response({
+                "status": "error",
+                "status_code": status.HTTP_404_NOT_FOUND,
+                "message": "No active data center set and no default data center found"
+            }, status=status.HTTP_404_NOT_FOUND)
+    
+    try:
+        data_center = DataCenter.objects.get(id=data_center_id)
+        logger.info(f"Found active data center: {data_center.name} (ID: {data_center_id})")
+    except DataCenter.DoesNotExist:
+        logger.error(f"Data center with ID {data_center_id} not found")
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_404_NOT_FOUND,
+            "message": f"Data center with ID {data_center_id} not found"
+        }, status=status.HTTP_404_NOT_FOUND)
+    
+    points_data = request.data.get('points', [])
+    
+    if debug:
+        logger.info(f"Points data received: {points_data}")
+    
+    if not points_data:
+        logger.warning("No points data provided in request")
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "message": "Points data is required"
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        if debug:
+            logger.info(f"Clearing existing points for data center {data_center_id}")
+        data_center.points.clear()
+        
+        for point_data in points_data:
+            x = point_data.get('x')
+            y = point_data.get('y')
+            
+            if x is None or y is None:
+                logger.warning(f"Invalid point data: {point_data}")
+                return Response({
+                    "status": "error",
+                    "status_code": status.HTTP_400_BAD_REQUEST,
+                    "message": "Each point must have x and y coordinates"
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            point, created = Point.objects.get_or_create(x=x, y=y)
+            data_center.points.add(point)
+            if debug:
+                logger.info(f"Added point ({x}, {y}) to data center {data_center_id}")
+        
+        data_center = DataCenter.objects.get(pk=data_center.pk)
+        serializer = DataCenterSerializer(data_center)
+        
+        if debug:
+            logger.info(f"Successfully updated points for data center {data_center_id}")
+            logger.info(f"New points: {[{'x': p.x, 'y': p.y} for p in data_center.points.all()]}")
+        
+        return Response({
+            "status": "success",
+            "status_code": status.HTTP_200_OK,
+            "message": "Data center points updated successfully",
+            "data": serializer.data
+        })
+    except Exception as e:
+        logger.error(f"Error updating data center points: {str(e)}", exc_info=True)
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_400_BAD_REQUEST,
+            "message": str(e)
+        }, status=status.HTTP_400_BAD_REQUEST)
