@@ -205,6 +205,9 @@ function SplashScreen() {
   }
 
   async function handleBypassVRStep() {
+    await fetch(
+      `${import.meta.env.VITE_API_BASE_URL}/api/display-control/toggle/`
+    );
     setProjectStep(0);
     setSelectedLibrary(null);
     setSelectedRuleset(null);
@@ -245,6 +248,9 @@ function SplashScreen() {
         },
       ]);
       setShowVRStep(false);
+      await fetch(
+        `${import.meta.env.VITE_API_BASE_URL}/api/display-control/toggle/`
+      );
       navigate(`/projects/${newId}`);
     } catch (e) {
       alert(
