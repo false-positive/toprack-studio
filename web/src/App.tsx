@@ -79,6 +79,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { ComponentSelectorPanel } from "@/components/ComponentSelectorPanel";
 
 // Units type for measurement units
 interface Units {
@@ -700,7 +701,7 @@ function SplashScreen() {
               <span className="animate-pulse text-primary text-2xl font-semibold">
                 Waiting for VR scan...
               </span>
-              {currentDisplay === "vr" && !!currentDataCenterSize && (
+              {!!currentDataCenterSize && (
                 <Button
                   variant="outline"
                   className="mt-6"
@@ -1349,7 +1350,7 @@ function EditorPage() {
                   </aside>
                 </ResizablePanel>
                 <ResizableHandle withHandle />
-                {/* Module Library Panel (bottom, larger half) */}
+                {/* Module Library Panel (middle) */}
                 <ResizablePanel defaultSize={60} minSize={40}>
                   <aside className="h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6 bg-card/90 border-l border-border rounded-b-lg">
                     <div className="mb-6">
@@ -1406,6 +1407,13 @@ function EditorPage() {
                     <ScrollArea className="h-[200px]">
                       <ModuleLibrary modules={filteredModules} />
                     </ScrollArea>
+                  </aside>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                {/* Component Selector Panel (bottom, small by default, expandable) */}
+                <ResizablePanel defaultSize={18} minSize={10} maxSize={40}>
+                  <aside className="h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6 bg-card/90 border-l border-border rounded-b-lg">
+                    <ComponentSelectorPanel />
                   </aside>
                 </ResizablePanel>
               </ResizablePanelGroup>
