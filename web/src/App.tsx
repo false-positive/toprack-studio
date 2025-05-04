@@ -1148,7 +1148,9 @@ function EditorPage() {
                                 <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
                                 <AlertTitle>
                                   {validation.violations.length} specification
-                                  {validation.violations.length > 1 ? "s" : ""}{" "}
+                                  {validation.violations.length > 1
+                                    ? "s"
+                                    : ""}{" "}
                                   not met
                                 </AlertTitle>
                               </Alert>
