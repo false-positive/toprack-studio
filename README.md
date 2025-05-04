@@ -68,6 +68,38 @@ TopRack Studio is a modern, immersive platform for designing made-to-order data 
 - **Design & Validate**: Drag modules into your layout, see real-time feedback, and ensure all constraints are met.
 - **Collaborate & Iterate**: All changes are saved in the cloud, so you can collaborate and refine your design anytime.
 
+### Visual Guide
+
+<p align="center">
+  <img src="./assets/data_center_plan.png" width="600" alt="Data Center Layout Plan" />
+  <br/>
+  <em>Figure 1: Interactive data center layout with modules and constraints visualization</em>
+</p>
+
+<p align="center">
+  <img src="./assets/splash_screen.png" width="600" alt="TopRack Studio Welcome Screen" />
+  <br/>
+  <em>Figure 2: Welcome screen with quick access to recent projects and templates</em>
+</p>
+
+<p align="center">
+  <img src="./assets/project_setup.png" width="600" alt="Project Configuration Interface" />
+  <br/>
+  <em>Figure 3: Project setup wizard for configuring initial parameters and constraints</em>
+</p>
+
+<p align="center">
+  <img src="./assets/project_creator.png" width="600" alt="New Project Creation Dialog" />
+  <br/>
+  <em>Figure 4: Create new project dialog with advanced configuration options</em>
+</p>
+
+<p align="center">
+  <img src="./assets/measurement_units.png" width="600" alt="Measurement Units Configuration" />
+  <br/>
+  <em>Figure 5: Customizable measurement units and conversion settings</em>
+</p>
+
 ---
 
 ## 📸 Screenshots
