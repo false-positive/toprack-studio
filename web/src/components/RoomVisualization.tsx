@@ -19,6 +19,8 @@ interface RoomVisualizationProps {
   mapRef: React.MutableRefObject<L.Map | null>;
   activeModules: Array<ActiveModule>;
   onDeleteModule?: (id: number) => void;
+  mapZIndex?: string;
+  zoomZIndex?: string;
 }
 
 // Component to handle map events and interactions
@@ -46,6 +48,8 @@ export default function RoomVisualization({
   activeModules,
   mapRef,
   onDeleteModule,
+  mapZIndex = "z-0",
+  zoomZIndex = "z-40",
 }: RoomVisualizationProps) {
   const { setNodeRef } = useDroppable({
     id: "room",
@@ -75,9 +79,14 @@ export default function RoomVisualization({
   };
 
   return (
-    <div className="h-full w-full bg-background relative" ref={setNodeRef}>
+    <div
+      className={`h-full w-full bg-background relative ${mapZIndex}`}
+      ref={setNodeRef}
+    >
       {/* Custom Zoom Controls - now on the left above the toolbar */}
-      <div className="absolute left-4 top-4 z-[1000] flex flex-col gap-2 bg-card/80 rounded-md shadow-lg p-2 border border-border">
+      <div
+        className={`absolute left-4 top-4 flex flex-col gap-2 bg-card/80 rounded-md shadow-lg p-2 border border-border ${zoomZIndex}`}
+      >
         <Button
           size="icon"
           variant="outline"

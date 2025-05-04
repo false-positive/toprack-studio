@@ -24,7 +24,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAtom } from "jotai";
 import L from "leaflet";
 import {
@@ -48,13 +48,22 @@ import ModuleCard from "./components/ModuleCard";
 import ModuleLibrary from "./components/ModuleLibrary";
 import RoomVisualization from "./components/RoomVisualization";
 import Toolbar from "./components/Toolbar";
+import { Input } from "./components/ui/input";
 import {
-  fetchActiveModules,
-  fetchModules,
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarTrigger,
+} from "./components/ui/menubar";
+import {
   addActiveModule,
   deleteActiveModule,
+  fetchActiveModules,
+  fetchModules,
 } from "./data/modules";
-import { Input } from "./components/ui/input";
 import { projectsAtom } from "./projectsAtom";
 
 // Units type for measurement units
@@ -904,18 +913,92 @@ function EditorPage() {
       onDragCancel={() => setActiveModuleId(null)}
     >
       <div className="flex flex-col min-h-screen bg-background text-foreground dark">
-        <header className="w-full h-(--header-height) border-b flex items-center border-border bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0">
-          <Link to="/" className="flex items-center gap-3 px-8 py-3">
-            <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-1.5">
-              <LLogo className="size-6" />
-            </span>
-            <h1 className="text-base font-semibold tracking-tight">
-              {currentProject ? currentProject.name : "Data Center Editor"}
-            </h1>
-          </Link>
+        <header className="w-full border-b bg-card/80 backdrop-blur supports-[backdrop-filter]:bg-card/60 shadow-sm px-0 py-0 sticky top-0 z-50">
+          <div className="flex flex-col items-start w-full px-8 pt-2 pb-0">
+            <div className="flex items-center gap-3 mb-1">
+              <span className="inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground p-1.5">
+                <LLogo className="size-6" />
+              </span>
+              <h1 className="text-base font-semibold tracking-tight">
+                {currentProject ? currentProject.name : "Data Center Editor"}
+              </h1>
+            </div>
+            <nav className="flex flex-row gap-2 z-50 relative">
+              <Menubar>
+                <MenubarMenu>
+                  <MenubarTrigger>File</MenubarTrigger>
+                  <MenubarContent>
+                    <MenubarItem>
+                      New Tab <MenubarShortcut>⌘T</MenubarShortcut>
+                    </MenubarItem>
+                    <MenubarItem>New Window</MenubarItem>
+                    <MenubarSeparator />
+                    <MenubarItem>Share</MenubarItem>
+                    <MenubarSeparator />
+                    <MenubarItem>Print</MenubarItem>
+                  </MenubarContent>
+                </MenubarMenu>
+                <MenubarMenu>
+                  <MenubarTrigger>Edit</MenubarTrigger>
+                  <MenubarContent>
+                    <MenubarItem>
+                      Undo <MenubarShortcut>⌘Z</MenubarShortcut>
+                    </MenubarItem>
+                    <MenubarItem>
+                      Redo <MenubarShortcut>⇧⌘Z</MenubarShortcut>
+                    </MenubarItem>
+                    <MenubarSeparator />
+                    <MenubarItem>
+                      Cut <MenubarShortcut>⌘X</MenubarShortcut>
+                    </MenubarItem>
+                    <MenubarItem>
+                      Copy <MenubarShortcut>⌘C</MenubarShortcut>
+                    </MenubarItem>
+                    <MenubarItem>
+                      Paste <MenubarShortcut>⌘V</MenubarShortcut>
+                    </MenubarItem>
+                  </MenubarContent>
+                </MenubarMenu>
+                <MenubarMenu>
+                  <MenubarTrigger>View</MenubarTrigger>
+                  <MenubarContent>
+                    <MenubarItem>
+                      Zoom In <MenubarShortcut>⌘+</MenubarShortcut>
+                    </MenubarItem>
+                    <MenubarItem>
+                      Zoom Out <MenubarShortcut>⌘-</MenubarShortcut>
+                    </MenubarItem>
+                    <MenubarItem>
+                      Reset Zoom <MenubarShortcut>⌘0</MenubarShortcut>
+                    </MenubarItem>
+                    <MenubarSeparator />
+                    <MenubarItem>Toggle Fullscreen</MenubarItem>
+                  </MenubarContent>
+                </MenubarMenu>
+                <MenubarMenu>
+                  <MenubarTrigger>Window</MenubarTrigger>
+                  <MenubarContent>
+                    <MenubarItem>Minimize</MenubarItem>
+                    <MenubarItem>Zoom</MenubarItem>
+                    <MenubarSeparator />
+                    <MenubarItem>
+                      Close Window <MenubarShortcut>⌘W</MenubarShortcut>
+                    </MenubarItem>
+                  </MenubarContent>
+                </MenubarMenu>
+                <MenubarMenu>
+                  <MenubarTrigger>Help</MenubarTrigger>
+                  <MenubarContent>
+                    <MenubarItem>Documentation</MenubarItem>
+                    <MenubarItem>About</MenubarItem>
+                  </MenubarContent>
+                </MenubarMenu>
+              </Menubar>
+            </nav>
+          </div>
         </header>
         <main className="flex flex-1 h-[calc(100vh-var(--header-height)-var(--footer-height))]">
-          <Toolbar />
+          <Toolbar className="z-30" />
           <div className="flex-1 flex items-stretch">
             <div className="flex-1 bg-gradient-to-br from-background via-muted to-background">
               <RoomVisualization
@@ -924,6 +1007,8 @@ function EditorPage() {
                 mapRef={mapRef}
                 activeModules={activeModules.data}
                 onDeleteModule={(id) => deleteModuleMutation.mutate(id)}
+                mapZIndex="z-0"
+                zoomZIndex="z-40"
               />
             </div>
             <aside className="w-80 max-w-xs border-l border-border bg-card/90 h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6">
