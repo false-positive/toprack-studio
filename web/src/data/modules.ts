@@ -170,8 +170,8 @@ export async function addActiveModule({
   dataCenterId: number;
 }): Promise<ActiveModule> {
   const body: Record<string, unknown> = {
-    x: y,
-    y: x,
+    x,
+    y,
     module: moduleId,
     data_center: dataCenterId,
   };
@@ -184,7 +184,15 @@ export async function addActiveModule({
     body: JSON.stringify(body),
   });
   if (!response.ok) throw new Error("Failed to add active module");
-  return response.json();
+  const payload = await response.json();
+  return {
+    ...payload,
+    data: {
+      ...payload.data,
+      x: payload.data.y,
+      y: payload.data.x,
+    },
+  };
 }
 
 export async function deleteActiveModule(
