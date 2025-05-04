@@ -7,23 +7,27 @@ import {
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
+import { useParams } from "react-router";
 
-function fetchComponents(): Promise<DataCenterComponent[]> {
+function fetchComponents(dataCenterId: number): Promise<DataCenterComponent[]> {
   return fetch(
-    `${import.meta.env.VITE_API_BASE_URL}/api/datacenter-components/`
+    `${
+      import.meta.env.VITE_API_BASE_URL
+    }/api/datacenter-components/?data_center_id=${dataCenterId}`
   )
     .then((res) => res.json())
     .then((data) => data.data);
 }
 
 export function ComponentSelectorPanel() {
+  const { projectId } = useParams();
   const {
     data: components,
     isLoading,
     error,
   } = useQuery({
     queryKey: ["datacenter-components"],
-    queryFn: fetchComponents,
+    queryFn: () => fetchComponents(projectId ? Number(projectId) : -69),
   });
   const [selected, setSelected] = useAtom(selectedComponentAtom);
 
