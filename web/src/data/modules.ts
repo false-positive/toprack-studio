@@ -170,8 +170,8 @@ export async function addActiveModule({
   dataCenterId: number;
 }): Promise<ActiveModule> {
   const body: Record<string, unknown> = {
-    x,
     y,
+    x,
     module: moduleId,
     data_center: dataCenterId,
   };

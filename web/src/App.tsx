@@ -959,8 +959,8 @@ function EditorPage() {
       moduleId: string;
     }) => {
       return addActiveModule({
-        y,
         x,
+        y,
         moduleId,
         dataCenterId: Number(projectId),
         dataCenterComponentId: selectedComponent?.id,
