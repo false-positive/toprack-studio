@@ -26,7 +26,6 @@ import { DndContext, DragOverlay } from "@dnd-kit/core";
 import { ScrollArea } from "@radix-ui/react-scroll-area";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAtom } from "jotai";
-import { atomWithStorage } from "jotai/utils";
 import L from "leaflet";
 import {
   BookOpen,
@@ -56,16 +55,23 @@ import {
   deleteActiveModule,
 } from "./data/modules";
 import { Input } from "./components/ui/input";
+import { projectsAtom } from "./projectsAtom";
+
+// Units type for measurement units
+interface Units {
+  distance: string;
+  currency: string;
+  water: string;
+  power: string;
+}
 
 // Project type
-interface Project {
+export interface Project {
   id: number;
   name: string;
   lastOpenedAt: string; // ISO string for serialization
+  units: Units;
 }
-
-// Jotai atom for projects, persisted to localStorage
-const projectsAtom = atomWithStorage<Project[]>("projects", []);
 
 type ActiveModulesQueryResult = Awaited<ReturnType<typeof fetchActiveModules>>;
 
@@ -130,6 +136,10 @@ function SplashScreen() {
   const [selectedLibrary, setSelectedLibrary] = useState<number | null>(null);
   const [selectedRuleset, setSelectedRuleset] = useState<number | null>(null);
 
+  useEffect(() => {
+    console.log(units);
+  }, [units]);
+
   // Helper to format relative time
   function formatRelativeTime(dateString: string) {
     const date = new Date(dateString);
@@ -163,6 +173,16 @@ function SplashScreen() {
   }
 
   async function handleBypassVRStep() {
+    setProjectStep(0);
+    setSelectedLibrary(null);
+    setSelectedRuleset(null);
+    setUnitsOpen(false);
+    setUnits({
+      distance: "m",
+      currency: "EUR",
+      water: "L",
+      power: "kW",
+    });
     try {
       const resp = await fetch(
         `${import.meta.env.VITE_API_BASE_URL}/api/create-data-center/`,
@@ -170,6 +190,8 @@ function SplashScreen() {
           method: "POST",
           body: JSON.stringify({
             name: newProjectName.concat(new Date().getTime().toString()),
+            _will_add_units_even_tho_this_field_is_ignored_by_the_backend:
+              units,
           }),
           headers: {
             "Content-Type": "application/json",
@@ -573,16 +595,6 @@ function SplashScreen() {
                   onClick={() => {
                     setShowVRStep(true);
                     setNewProjectDialogOpen(false);
-                    setProjectStep(0);
-                    setSelectedLibrary(null);
-                    setSelectedRuleset(null);
-                    setUnitsOpen(false);
-                    setUnits({
-                      distance: "m",
-                      currency: "EUR",
-                      water: "L",
-                      power: "kW",
-                    });
                   }}
                 >
                   Create Project

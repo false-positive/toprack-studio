@@ -3,6 +3,9 @@ import { useDraggable } from "@dnd-kit/core";
 import type { Module } from "../../types";
 import { cn } from "@/lib/utils";
 import { CSS } from "@dnd-kit/utilities";
+import { useAtomValue } from "jotai";
+import { projectsAtom } from "@/projectsAtom";
+import { useParams } from "react-router";
 
 interface ModuleCardProps {
   module: Module;
@@ -17,11 +20,18 @@ export default function ModuleCard({
   draggable = true,
   highlight = false,
 }: ModuleCardProps) {
+  const { projectId } = useParams();
   const dnd = useDraggable({ id: `module-${module.id}` });
   const setNodeRef = draggable ? dnd.setNodeRef : undefined;
   const listeners = draggable ? dnd.listeners : {};
   const attributes = draggable ? dnd.attributes : {};
   const transform = draggable ? dnd.transform : null;
+
+  const projects = useAtomValue(projectsAtom);
+
+  const distanceUnit = projects.find(
+    (project) => project.id === Number(projectId)
+  )?.units.distance;
 
   return (
     <Card
@@ -56,7 +66,9 @@ export default function ModuleCard({
           {module.name.replace(/[ _-]/g, " ")}
         </h3>
         <p className="text-xs text-muted-foreground">
-          {(module.width / 10).toFixed(1)}m × {(module.depth / 10).toFixed(1)}m
+          {(module.width / 10).toFixed(1)}
+          {distanceUnit} × {(module.depth / 10).toFixed(1)}
+          {distanceUnit}
         </p>
         <div className="flex gap-2 mt-1 text-xs">
           <span className="bg-muted px-2 py-0.5 rounded text-foreground">
