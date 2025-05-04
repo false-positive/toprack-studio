@@ -95,7 +95,7 @@ TopRack Studio is a modern, immersive platform for designing made-to-order data 
 </p>
 
 <p align="center">
-  <img src="./assets/measurement_units.png" width="600" alt="Measurement Units Configuration" />
+  <img src="./assets/measurement_unit_configuration.png" width="600" alt="Measurement Units Configuration" />
   <br/>
   <em>Figure 5: Customizable measurement units and conversion settings</em>
 </p>
