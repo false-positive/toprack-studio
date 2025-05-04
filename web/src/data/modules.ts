@@ -225,3 +225,11 @@ export async function fetchValidationResults(dataCenterId: number) {
   if (!response.ok) throw new Error("Failed to fetch validation results");
   return response.json();
 }
+
+export async function fetchDataCenterDetails(dataCenterId: number) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/datacenters/${dataCenterId}/`
+  );
+  if (!response.ok) throw new Error("Failed to fetch data center details");
+  return response.json();
+}

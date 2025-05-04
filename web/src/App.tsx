@@ -771,16 +771,50 @@ function EditorPage() {
     }
   }, [projectId, setProjects]);
 
-  const [roomDimensions] = useState({
-    width: 20, // meters
-    height: 15, // meters
-    walls: [
-      { start: [0, 0] as [number, number], end: [60, 0] as [number, number] },
-      { start: [60, 0] as [number, number], end: [60, 45] as [number, number] },
-      { start: [60, 45] as [number, number], end: [0, 45] as [number, number] },
-      { start: [0, 45] as [number, number], end: [0, 0] as [number, number] },
-    ],
-  });
+  // Fetch real room dimensions from backend
+  const [roomDimensions, setRoomDimensions] = useState<{
+    width: number;
+    height: number;
+    walls: Array<{ start: [number, number]; end: [number, number] }>;
+  } | null>(null);
+  const [roomLoading, setRoomLoading] = useState(true);
+  const [roomError, setRoomError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadRoom() {
+      setRoomLoading(true);
+      setRoomError(null);
+      try {
+        const resp = await import("./data/modules");
+        const data = await resp.fetchDataCenterDetails(Number(projectId));
+        // API response: { data: { width, height, points: [{x, y}, ...] } }
+        const dc = data.data || data; // fallback if not wrapped
+        const points = dc.points || [];
+        // Convert points to walls (edges)
+        const walls =
+          points.length > 1
+            ? points.map((pt: { x: number; y: number }, i: number) => ({
+                start: [points[i].x, points[i].y] as [number, number],
+                end: [
+                  points[(i + 1) % points.length].x,
+                  points[(i + 1) % points.length].y,
+                ] as [number, number],
+              }))
+            : [];
+        setRoomDimensions({
+          width: dc.width || 0,
+          height: dc.height || 0,
+          walls,
+        });
+      } catch (e) {
+        setRoomError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setRoomLoading(false);
+      }
+    }
+    if (projectId) loadRoom();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId]);
 
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
 
@@ -909,11 +943,12 @@ function EditorPage() {
     return matchesSearch && matchesType;
   });
 
-  if (modulesLoading || !activeModules) {
+  if (modulesLoading || !activeModules || roomLoading || !roomDimensions) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-        <p className="text-muted-foreground">Loading modules data...</p>
+        <p className="text-muted-foreground">Loading editor data...</p>
+        {roomError && <p className="text-red-500 mt-2">{roomError}</p>}
       </div>
     );
   }
