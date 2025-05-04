@@ -63,6 +63,7 @@ import {
   addActiveModule,
   deleteActiveModule,
   fetchActiveModules,
+  fetchDataCenterDetails,
   fetchModules,
   fetchValidationResults,
 } from "./data/modules";
@@ -125,6 +126,33 @@ function SplashScreen() {
   const [renameValue, setRenameValue] = useState("");
   const [showVRStep, setShowVRStep] = useState(false);
   const navigate = useNavigate();
+
+  const { data: currentDisplayResponse } = useQuery({
+    queryKey: ["currentDisplay"],
+    queryFn: () =>
+      fetch(`${import.meta.env.VITE_API_BASE_URL}/api/display-control/`).then(
+        (res) =>
+          res.json() as Promise<{
+            data: {
+              current_display: "website" | "vr";
+            };
+          }>
+      ),
+  });
+  const currentDisplay = currentDisplayResponse?.data?.current_display;
+
+  const [projectId, setProjectId] = useState<number | null>(null);
+  const { data: dataCenterDetails } = useQuery({
+    queryKey: ["dataCenterDetails", projectId],
+    queryFn: () => fetchDataCenterDetails(Number(projectId)),
+    enabled: !!projectId,
+  });
+  const currentDataCenterSize = dataCenterDetails?.data
+    ? {
+        width: dataCenterDetails.data.width,
+        height: dataCenterDetails.data.height,
+      }
+    : null;
 
   // Mock data for module libraries and rulesets
   const mockLibraries = [
@@ -620,6 +648,7 @@ function SplashScreen() {
                       if (!resp.ok)
                         throw new Error("Failed to initialize values");
                       const newId = (await resp.json()).data.id;
+                      setProjectId(newId);
                       setProjects((prev) => [
                         ...prev,
                         {
@@ -671,16 +700,20 @@ function SplashScreen() {
               <span className="animate-pulse text-primary text-2xl font-semibold">
                 Waiting for VR scan...
               </span>
-              {/* TEMPORARY OVERRIDE BUTTON - REMOVE BEFORE PRODUCTION */}
-              <Button
-                variant="outline"
-                className="mt-6"
-                onClick={() =>
-                  pendingVRProjectId && handleBypassVRStep(pendingVRProjectId)
-                }
-              >
-                Temporary: Skip VR Step
-              </Button>
+              {currentDisplay === "vr" &&
+                (currentDataCenterSize?.width > 0 ||
+                  currentDataCenterSize?.height > 0) && (
+                  <Button
+                    variant="outline"
+                    className="mt-6"
+                    onClick={() =>
+                      pendingVRProjectId &&
+                      handleBypassVRStep(pendingVRProjectId)
+                    }
+                  >
+                    Continue to Dashboard
+                  </Button>
+                )}
             </div>
           </DialogContent>
         </Dialog>
