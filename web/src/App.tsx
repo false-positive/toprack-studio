@@ -1365,7 +1365,6 @@ function EditorPage() {
                     border: "2px solid #fff",
                     opacity: 0.95,
                     letterSpacing: "0.04em",
-                    transform: "translate(-50%, -50%)",
                   }}
                 >
                   {label}
