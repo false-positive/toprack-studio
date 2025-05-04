@@ -4,7 +4,7 @@
 
 ---
 
-[![Watch the video](https://img.youtube.com/vi/tt8pcE6d2jo/maxresdefault.jpg)](./assets/Hackupc-Video-Demo-Vr-720p.mp4)
+[![Watch the video](https://img.youtube.com/vi/PxyJLzDaz8Y/maxresdefault.jpg)](https://youtu.be/PxyJLzDaz8Y)
 
 ---
 
