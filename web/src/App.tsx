@@ -1035,62 +1035,85 @@ function EditorPage() {
             </ResizablePanel>
             <ResizableHandle withHandle />
             <ResizablePanel defaultSize={20} minSize={16} maxSize={32}>
-              <aside className="h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6 bg-card/90 border-l border-border">
-                <div className="mb-6">
-                  <h2 className="text-lg font-bold mb-4">Module Library</h2>
-                  <Card>
-                    <CardContent className="space-y-2">
-                      <div className="flex flex-col gap-2">
-                        <Label
-                          htmlFor="module-search"
-                          className="text-xs text-muted-foreground"
-                        >
-                          Search modules
-                        </Label>
-                        <Input
-                          id="module-search"
-                          type="text"
-                          placeholder="Search modules..."
-                          value={search}
-                          onChange={(e) => setSearch(e.target.value)}
-                          className="w-full text-sm bg-background text-foreground border-border"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-2">
-                        <Label
-                          htmlFor="type-filter"
-                          className="text-xs text-muted-foreground"
-                        >
-                          Type
-                        </Label>
-                        <Select
-                          value={typeFilter}
-                          onValueChange={setTypeFilter}
-                        >
-                          <SelectTrigger
-                            id="type-filter"
-                            className="w-full text-sm bg-background text-foreground border-border"
-                          >
-                            <SelectValue placeholder="All Types" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">All Types</SelectItem>
-                            {moduleTypes.map((type) => (
-                              <SelectItem key={type} value={type}>
-                                {type}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Separator className="mt-5 bg-border" />
-                </div>
-                <ScrollArea className="h-[200px]">
-                  <ModuleLibrary modules={filteredModules} />
-                </ScrollArea>
-              </aside>
+              {/* Nested vertical split for Spec Checker and Module Library */}
+              <ResizablePanelGroup
+                direction="vertical"
+                className="h-full w-full"
+              >
+                {/* Spec Checker Panel (top, starts small) */}
+                <ResizablePanel defaultSize={16} minSize={16} maxSize={60}>
+                  <aside className="h-full flex flex-col bg-card/90 border-b border-border rounded-t-lg px-4 py-6">
+                    <div className="mb-4">
+                      <h2 className="text-lg font-bold mb-2">Spec Checker</h2>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center">
+                      <span className="text-xs text-muted-foreground text-center">
+                        Placeholder: Spec/rule validation will appear here.
+                      </span>
+                    </div>
+                  </aside>
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+                {/* Module Library Panel (bottom, larger half) */}
+                <ResizablePanel defaultSize={60} minSize={40}>
+                  <aside className="h-full flex flex-col overflow-y-auto sticky top-0 shadow-md px-4 py-6 bg-card/90 border-l border-border rounded-b-lg">
+                    <div className="mb-6">
+                      <h2 className="text-lg font-bold mb-4">Module Library</h2>
+                      <Card>
+                        <CardContent className="space-y-2">
+                          <div className="flex flex-col gap-2">
+                            <Label
+                              htmlFor="module-search"
+                              className="text-xs text-muted-foreground"
+                            >
+                              Search modules
+                            </Label>
+                            <Input
+                              id="module-search"
+                              type="text"
+                              placeholder="Search modules..."
+                              value={search}
+                              onChange={(e) => setSearch(e.target.value)}
+                              className="w-full text-sm bg-background text-foreground border-border"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-2">
+                            <Label
+                              htmlFor="type-filter"
+                              className="text-xs text-muted-foreground"
+                            >
+                              Type
+                            </Label>
+                            <Select
+                              value={typeFilter}
+                              onValueChange={setTypeFilter}
+                            >
+                              <SelectTrigger
+                                id="type-filter"
+                                className="w-full text-sm bg-background text-foreground border-border"
+                              >
+                                <SelectValue placeholder="All Types" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Types</SelectItem>
+                                {moduleTypes.map((type) => (
+                                  <SelectItem key={type} value={type}>
+                                    {type}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Separator className="mt-5 bg-border" />
+                    </div>
+                    <ScrollArea className="h-[200px]">
+                      <ModuleLibrary modules={filteredModules} />
+                    </ScrollArea>
+                  </aside>
+                </ResizablePanel>
+              </ResizablePanelGroup>
             </ResizablePanel>
           </ResizablePanelGroup>
         </main>
