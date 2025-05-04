@@ -266,7 +266,7 @@ function SplashScreen() {
             <LLogo className="size-6" />
           </span>
           <h1 className="text-2xl font-bold tracking-tight">
-            Welcome to Data Center Designer
+            Welcome to TopRack Studio
           </h1>
           <p className="text-muted-foreground text-base">
             Design, manage, and visualize your data center projects.
