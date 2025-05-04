@@ -1,65 +1,80 @@
+import { projectsAtom } from "@/projectsAtom";
+import { useAtom } from "jotai";
 import L from "leaflet";
 import { useEffect } from "react";
 import { useMap } from "react-leaflet";
+import { useParams } from "react-router";
 
 interface WallDimensionsProps {
-    walls: Array<{ start: [number, number]; end: [number, number] }>;
+  walls: Array<{ start: [number, number]; end: [number, number] }>;
 }
 
 export default function WallDimensions({ walls }: WallDimensionsProps) {
-    const map = useMap();
+  const map = useMap();
 
-    useEffect(() => {
-        const dimensionLayers: L.Layer[] = [];
+  const [projects] = useAtom(projectsAtom);
+  const currentProjectId = useParams().projectId;
+  const currentProject = projects.find(
+    (project) => project.id === Number(currentProjectId)
+  );
+  const unit = currentProject?.units.distance;
 
-        // Only show dimensions for the bottom and left walls (first and last in array)
-        const showWalls = [0, walls.length - 1];
+  useEffect(() => {
+    const dimensionLayers: L.Layer[] = [];
 
-        showWalls.forEach((wallIdx) => {
-            const wall = walls[wallIdx];
-            if (!wall) return;
-            // Calculate midpoint of the wall
-            const midX = (wall.start[0] + wall.end[0]) / 2;
-            const midY = (wall.start[1] + wall.end[1]) / 2;
+    // Only show dimensions for the bottom and left walls (first and last in array)
+    const showWalls = [0, walls.length - 1];
 
-            // Calculate length of the wall
-            const length = Math.sqrt(Math.pow(wall.end[0] - wall.start[0], 2) + Math.pow(wall.end[1] - wall.start[1], 2));
+    showWalls.forEach((wallIdx) => {
+      const wall = walls[wallIdx];
+      if (!wall) return;
+      // Calculate midpoint of the wall
+      const midX = (wall.start[0] + wall.end[0]) / 2;
+      const midY = (wall.start[1] + wall.end[1]) / 2;
 
-            // Calculate angle of the wall
-            const angle = Math.atan2(wall.end[1] - wall.start[1], wall.end[0] - wall.start[0]) * (180 / Math.PI);
+      // Calculate length of the wall
+      const length = Math.sqrt(
+        Math.pow(wall.end[0] - wall.start[0], 2) +
+          Math.pow(wall.end[1] - wall.start[1], 2)
+      );
 
-            // Create a custom div for the dimension label
-            const dimensionDiv = L.DomUtil.create("div", "dimension-label");
-            dimensionDiv.innerHTML = `${length.toFixed(1)}m`;
-            dimensionDiv.style.transform = `rotate(${angle}deg)`;
+      // Calculate angle of the wall
+      const angle =
+        Math.atan2(wall.end[1] - wall.start[1], wall.end[0] - wall.start[0]) *
+        (180 / Math.PI);
 
-            // Create a custom icon using the div
-            const dimensionIcon = L.divIcon({
-                html: dimensionDiv,
-                className: "dimension-icon dimension-center",
-                iconSize: [80, 24],
-                iconAnchor: [40, 12],
-            });
+      // Create a custom div for the dimension label
+      const dimensionDiv = L.DomUtil.create("div", "dimension-label");
+      dimensionDiv.innerHTML = `${length.toFixed(1)}${unit}`;
+      dimensionDiv.style.transform = `rotate(${angle}deg)`;
 
-            // Create a marker at the midpoint with the dimension label
-            const dimensionMarker = L.marker([midY, midX], {
-                icon: dimensionIcon,
-                interactive: false,
-            }).addTo(map);
+      // Create a custom icon using the div
+      const dimensionIcon = L.divIcon({
+        html: dimensionDiv,
+        className: "dimension-icon dimension-center",
+        iconSize: [80, 24],
+        iconAnchor: [40, 12],
+      });
 
-            dimensionLayers.push(dimensionMarker);
-        });
+      // Create a marker at the midpoint with the dimension label
+      const dimensionMarker = L.marker([midY, midX], {
+        icon: dimensionIcon,
+        interactive: false,
+      }).addTo(map);
 
-        return () => {
-            dimensionLayers.forEach((layer) => {
-                map.removeLayer(layer);
-            });
-        };
-    }, [map, walls]);
+      dimensionLayers.push(dimensionMarker);
+    });
 
-    // Add styles for dimension labels for better contrast and centering
-    const style = document.createElement("style");
-    style.innerHTML = `
+    return () => {
+      dimensionLayers.forEach((layer) => {
+        map.removeLayer(layer);
+      });
+    };
+  }, [map, walls]);
+
+  // Add styles for dimension labels for better contrast and centering
+  const style = document.createElement("style");
+  style.innerHTML = `
     .dimension-label {
       color: #fff !important;
       font-weight: bold;
@@ -87,10 +102,13 @@ export default function WallDimensions({ walls }: WallDimensionsProps) {
       height: 24px;
     }
   `;
-    if (typeof window !== "undefined" && !document.getElementById("dimension-label-style")) {
-        style.id = "dimension-label-style";
-        document.head.appendChild(style);
-    }
+  if (
+    typeof window !== "undefined" &&
+    !document.getElementById("dimension-label-style")
+  ) {
+    style.id = "dimension-label-style";
+    document.head.appendChild(style);
+  }
 
-    return null;
+  return null;
 }
