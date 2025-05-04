@@ -660,6 +660,19 @@ function SplashScreen() {
                       if (!resp.ok)
                         throw new Error("Failed to initialize values");
                       const newId = (await resp.json()).data.id;
+
+                      await fetch(
+                        `${
+                          import.meta.env.VITE_API_BASE_URL
+                        }/api/active-data-center/`,
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                          },
+                          body: JSON.stringify({ data_center_id: newId }),
+                        }
+                      );
                       setProjectId(newId);
                       setProjects((prev) => [
                         ...prev,
