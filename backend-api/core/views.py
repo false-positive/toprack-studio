@@ -17,6 +17,7 @@ from django.db import models
 from io import StringIO
 import sys
 from django.http import HttpResponse
+from django.conf import settings
 
 logger = logging.getLogger('django')
 
@@ -27,6 +28,10 @@ warmth_image = {
 
 display_control = {
     'current_display': 'website'
+}
+
+active_data_center = {
+    'id': None  # Will store the ID of the currently active data center
 }
 
 def custom_exception_handler(exc, context):
@@ -722,9 +727,13 @@ class DataCenterComponentViewSet(viewsets.ModelViewSet):
 @api_view(['GET', 'POST'])
 def validate_component_values(request, component_id=None):
     """API endpoint to validate DataCenterValues against component specifications"""
+    logger.info(f"validate_component_values called with component_id={component_id}")
     data_center_id = request.query_params.get('data_center') or request.data.get('data_center')
     
+    logger.info(f"Validating for data_center_id={data_center_id}")
+    
     if not data_center_id:
+        logger.warning("No data_center parameter provided")
         return Response({
             "status": "error",
             "status_code": status.HTTP_400_BAD_REQUEST,
@@ -733,7 +742,9 @@ def validate_component_values(request, component_id=None):
     
     try:
         data_center = DataCenter.objects.get(id=data_center_id)
+        logger.info(f"Found data center: {data_center.name} (ID: {data_center.id})")
     except DataCenter.DoesNotExist:
+        logger.error(f"Data center with ID {data_center_id} not found")
         return Response({
             "status": "error",
             "status_code": status.HTTP_404_NOT_FOUND,
@@ -744,31 +755,63 @@ def validate_component_values(request, component_id=None):
     if component_id:
         try:
             component = DataCenterComponent.objects.get(id=component_id)
+            logger.info(f"Found component: {component.name} (ID: {component.id})")
         except DataCenterComponent.DoesNotExist:
+            logger.error(f"Component with ID {component_id} not found")
             return Response({
                 "status": "error",
                 "status_code": status.HTTP_404_NOT_FOUND,
                 "message": f"Component with ID {component_id} not found"
             }, status=status.HTTP_404_NOT_FOUND)
     
-    validation_result, violations = DataCenterComponentService.validate_component_values(component, data_center)  # Removed recalculation step
+    logger.info(f"Calling DataCenterComponentService.validate_component_values with component={component}, data_center={data_center}")
+    try:
+        validation_result, violations = DataCenterComponentService.validate_component_values(component, data_center)
+        logger.info(f"Validation result: {validation_result}, Violations count: {len(violations)}")
+        if violations:
+            logger.info(f"Violations: {violations}")
+    except Exception as e:
+        logger.error(f"Error during validation: {str(e)}", exc_info=True)
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "message": f"Error during validation: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     if component:
         components = [component]
+        logger.info(f"Using single component: {component.name}")
     else:
-        component_ids = DataCenterValue.objects.filter(
-            data_center=data_center
-        ).exclude(
-            component=None
-        ).values_list('component_id', flat=True).distinct()
-        
-        components = DataCenterComponent.objects.filter(id__in=component_ids)
-        
-        if not components.exists():
-            components = DataCenterComponent.objects.filter(data_center=data_center)
+        logger.info("Getting component IDs from DataCenterValues")
+        try:
+            # Use filter() instead of values_list() followed by get() to avoid MultipleObjectsReturned
+            component_ids = DataCenterValue.objects.filter(
+                data_center=data_center
+            ).exclude(
+                component=None
+            ).values_list('component_id', flat=True).distinct()
+            
+            logger.info(f"Found {len(component_ids)} distinct component IDs: {list(component_ids)}")
+            
+            components = DataCenterComponent.objects.filter(id__in=component_ids)
+            logger.info(f"Found {components.count()} components")
+            
+            if not components.exists():
+                logger.info(f"No components found for data center {data_center.id}, using all components for this data center")
+                components = DataCenterComponent.objects.filter(data_center=data_center)
+                logger.info(f"Found {components.count()} components for data center {data_center.id}")
+        except Exception as e:
+            logger.error(f"Error getting components: {str(e)}", exc_info=True)
+            return Response({
+                "status": "error",
+                "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "message": f"Error getting components: {str(e)}"
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
+    logger.info(f"Serializing {len(components)} components")
     component_serializer = DataCenterComponentSerializer(components, many=True)
     
+    logger.info("Processing violations")
     violation_set = set()
     for v in violations:
         parts = v.split(':')
@@ -779,23 +822,39 @@ def validate_component_values(request, component_id=None):
                 unit = unit_parts[0].strip()
                 violation_set.add((component_name, unit))
     
-    current_values = {}
-    for value in DataCenterValue.objects.filter(data_center=data_center):
-        component_name = value.component.name if value.component else "Global"
-        if component_name not in current_values:
-            current_values[component_name] = {}
-        
-        is_violating = False
-        for violation_comp, violation_unit in violation_set:
-            if component_name in violation_comp and value.unit == violation_unit:
-                is_violating = True
-                break
-        
-        current_values[component_name][value.unit] = {
-            "value": value.value,
-            "violates_constraint": is_violating
-        }
+    logger.info(f"Found {len(violation_set)} unique violations: {violation_set}")
     
+    logger.info("Getting current values")
+    current_values = {}
+    try:
+        values_count = DataCenterValue.objects.filter(data_center=data_center).count()
+        logger.info(f"Found {values_count} DataCenterValue objects for data center {data_center.id}")
+        
+        for value in DataCenterValue.objects.filter(data_center=data_center):
+            component_name = value.component.name if value.component else "Global"
+            if component_name not in current_values:
+                current_values[component_name] = {}
+            
+            is_violating = False
+            for violation_comp, violation_unit in violation_set:
+                if component_name in violation_comp and value.unit == violation_unit:
+                    is_violating = True
+                    logger.info(f"Violation found: Component={component_name}, Unit={value.unit}, Value={value.value}")
+                    break
+            
+            current_values[component_name][value.unit] = {
+                "value": value.value,
+                "violates_constraint": is_violating
+            }
+    except Exception as e:
+        logger.error(f"Error getting current values: {str(e)}", exc_info=True)
+        return Response({
+            "status": "error",
+            "status_code": status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "message": f"Error getting current values: {str(e)}"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    logger.info("Getting data center points")
     data_center_info = {
         "id": data_center.id,
         "name": data_center.name,
@@ -804,9 +863,14 @@ def validate_component_values(request, component_id=None):
         "points": []
     }
 
-    points = data_center.points.all().order_by('id')
-    data_center_info["points"] = [{"x": point.x, "y": point.y} for point in points]
+    try:
+        points = data_center.points.all().order_by('id')
+        data_center_info["points"] = [{"x": point.x, "y": point.y} for point in points]
+        logger.info(f"Found {len(data_center_info['points'])} points for data center {data_center.id}")
+    except Exception as e:
+        logger.error(f"Error getting data center points: {str(e)}", exc_info=True)
     
+    logger.info(f"Preparing response with validation_result={validation_result}")
     if validation_result:
         return Response({
             "status": "success",
@@ -997,3 +1061,72 @@ def get_display_control(request):
             'current_display': display_control['current_display']
         }
     })
+
+@api_view(['GET', 'POST'])
+def get_set_active_data_center(request):
+    """API endpoint to get or set the currently active data center"""
+    if request.method == 'POST':
+        data_center_id = request.data.get('data_center_id')
+        if not data_center_id:
+            return Response({
+                "status": "error",
+                "status_code": status.HTTP_400_BAD_REQUEST,
+                "message": "data_center_id parameter is required"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Verify the data center exists
+            data_center = DataCenter.objects.get(id=data_center_id)
+            active_data_center['id'] = data_center_id
+            
+            return Response({
+                "status": "success",
+                "status_code": status.HTTP_200_OK,
+                "message": f"Active data center set to {data_center.name} (ID: {data_center_id})",
+                "data": {
+                    "id": data_center_id,
+                    "name": data_center.name
+                }
+            })
+        except DataCenter.DoesNotExist:
+            return Response({
+                "status": "error",
+                "status_code": status.HTTP_404_NOT_FOUND,
+                "message": f"Data center with ID {data_center_id} not found"
+            }, status=status.HTTP_404_NOT_FOUND)
+    else:  # GET request
+        data_center_id = active_data_center['id']
+        
+        # If no active data center is set, use the default
+        if not data_center_id:
+            try:
+                default_data_center = DataCenter.get_default()
+                active_data_center['id'] = default_data_center.id
+                data_center_id = default_data_center.id
+                data_center_name = default_data_center.name
+            except Exception as e:
+                return Response({
+                    "status": "error",
+                    "status_code": status.HTTP_404_NOT_FOUND,
+                    "message": "No active data center set and no default data center found"
+                }, status=status.HTTP_404_NOT_FOUND)
+        else:
+            try:
+                data_center = DataCenter.objects.get(id=data_center_id)
+                data_center_name = data_center.name
+            except DataCenter.DoesNotExist:
+                return Response({
+                    "status": "error",
+                    "status_code": status.HTTP_404_NOT_FOUND,
+                    "message": f"Previously active data center with ID {data_center_id} no longer exists"
+                }, status=status.HTTP_404_NOT_FOUND)
+        
+        return Response({
+            "status": "success",
+            "status_code": status.HTTP_200_OK,
+            "message": "Active data center retrieved successfully",
+            "data": {
+                "id": data_center_id,
+                "name": data_center_name
+            }
+        })
