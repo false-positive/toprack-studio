@@ -1,8 +1,13 @@
 import { useDroppable } from "@dnd-kit/core";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Minus, Plus } from "lucide-react";
-import { useEffect } from "react";
+import {
+  Minus,
+  Plus,
+  RectangleHorizontal,
+  RectangleVertical,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 import { MapContainer, Polyline, useMap } from "react-leaflet";
 import type { ActiveModule, Module } from "../../types";
 import PlacedModule from "./PlacedModule";
@@ -10,6 +15,7 @@ import { Button } from "./ui/button";
 import WallDimensions from "./WallDimensions";
 import { useAtomValue } from "jotai";
 import { selectedToolAtom } from "@/projectsAtom";
+import { fetchDisplayControl, toggleDisplayControl } from "@/data/modules";
 
 interface RoomVisualizationProps {
   roomDimensions: {
@@ -103,6 +109,26 @@ export default function RoomVisualization({
     }
   };
 
+  const [displayMode, setDisplayMode] = useState<"vr" | "website">("website");
+  const [isToggling, setIsToggling] = useState(false);
+
+  useEffect(() => {
+    fetchDisplayControl()
+      .then(setDisplayMode)
+      .catch(() => {});
+  }, []);
+
+  async function handleToggleVR() {
+    setIsToggling(true);
+    try {
+      const mode = await toggleDisplayControl();
+      setDisplayMode(mode);
+    } catch {
+      // Intentionally ignore errors for toggle
+    }
+    setIsToggling(false);
+  }
+
   return (
     <div
       className={`h-full w-full bg-background relative ${mapZIndex}`}
@@ -127,6 +153,28 @@ export default function RoomVisualization({
           onClick={handleZoomOut}
         >
           <Minus className="w-5 h-5" />
+        </Button>
+      </div>
+      {/* VR Toggle Button - top right */}
+      <div className="absolute bottom-4 right-4 z-50">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2 shadow-md"
+          onClick={handleToggleVR}
+          disabled={isToggling}
+        >
+          {displayMode === "vr" ? (
+            <>
+              <RectangleVertical className="w-5 h-5" />
+              Back to Editor
+            </>
+          ) : (
+            <>
+              <RectangleHorizontal className="w-5 h-5" />
+              Edit in VR
+            </>
+          )}
         </Button>
       </div>
       <MapContainer

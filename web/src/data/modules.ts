@@ -215,3 +215,17 @@ export async function fetchDataCenterDetails(dataCenterId: number) {
   if (!response.ok) throw new Error("Failed to fetch data center details");
   return response.json();
 }
+
+export async function fetchDisplayControl(): Promise<"vr" | "website"> {
+  const response = await fetch(`${API_BASE_URL}/api/display-control/`);
+  if (!response.ok) throw new Error("Failed to fetch display control");
+  const json = await response.json();
+  return json.data.current_display;
+}
+
+export async function toggleDisplayControl(): Promise<"vr" | "website"> {
+  const response = await fetch(`${API_BASE_URL}/api/display-control/toggle/`);
+  if (!response.ok) throw new Error("Failed to toggle display control");
+  const json = await response.json();
+  return json.data.current_display;
+}
