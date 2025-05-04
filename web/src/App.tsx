@@ -40,6 +40,8 @@ import {
   Sparkles,
   Trash2,
   UploadCloud,
+  CheckCircle,
+  AlertCircle,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link, Route, Routes, useNavigate, useParams } from "react-router";
@@ -63,6 +65,7 @@ import {
   deleteActiveModule,
   fetchActiveModules,
   fetchModules,
+  fetchValidationResults,
 } from "./data/modules";
 import { projectsAtom } from "./projectsAtom";
 import {
@@ -70,6 +73,12 @@ import {
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 // Units type for measurement units
 interface Units {
@@ -88,6 +97,16 @@ export interface Project {
 }
 
 type ActiveModulesQueryResult = Awaited<ReturnType<typeof fetchActiveModules>>;
+
+// Add type for validation response
+interface ValidationResult {
+  validation_passed: boolean;
+  violations: string[];
+  current_values: Record<
+    string,
+    Record<string, { value: number; violates_constraint: boolean }>
+  >;
+}
 
 function App() {
   return (
@@ -776,6 +795,23 @@ function EditorPage() {
     queryFn: () => fetchActiveModules(Number(projectId)),
   });
 
+  const {
+    data: validation,
+    isLoading: validationLoading,
+    error: validationError,
+    refetch: refetchValidation,
+  } = useQuery<ValidationResult>({
+    queryKey: ["validation", projectId],
+    queryFn: () => fetchValidationResults(Number(projectId)),
+    refetchOnWindowFocus: true,
+  });
+
+  // Auto-refresh validation when active modules change
+  useEffect(() => {
+    refetchValidation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeModules?.data?.length]);
+
   const addModuleMutation = useMutation({
     mutationFn: async ({
       x,
@@ -1043,14 +1079,191 @@ function EditorPage() {
                 {/* Spec Checker Panel (top, starts small) */}
                 <ResizablePanel defaultSize={16} minSize={16} maxSize={60}>
                   <aside className="h-full flex flex-col bg-card/90 border-b border-border rounded-t-lg px-4 py-6">
-                    <div className="mb-4">
-                      <h2 className="text-lg font-bold mb-2">Spec Checker</h2>
-                    </div>
-                    <div className="flex-1 flex items-center justify-center">
-                      <span className="text-xs text-muted-foreground text-center">
-                        Placeholder: Spec/rule validation will appear here.
-                      </span>
-                    </div>
+                    <Card className="w-full h-full flex flex-col shadow-lg border bg-background">
+                      <CardHeader className="flex flex-row items-center justify-between pb-2">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="w-5 h-5 text-primary" />
+                          <CardTitle className="text-lg font-bold">
+                            Spec Checker
+                          </CardTitle>
+                        </div>
+                        <span
+                          className={`ml-2 px-2 py-1 rounded text-xs font-semibold inline-flex items-center gap-1 ${
+                            validation &&
+                            validation.violations &&
+                            validation.violations.length > 0
+                              ? "bg-red-100 text-red-700"
+                              : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {validation &&
+                          validation.violations &&
+                          validation.violations.length > 0 ? (
+                            <>
+                              <AlertCircle className="w-3 h-3 mr-1" />
+                              {`${validation.violations.length} Violation${
+                                validation.violations.length > 1 ? "s" : ""
+                              }`}
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              All Specs Met
+                            </>
+                          )}
+                        </span>
+                      </CardHeader>
+                      <CardContent className="flex-1 flex flex-col p-0 min-h-0">
+                        {/* Alert/Callout */}
+                        <div className="px-4 pt-2 pb-4">
+                          {validationLoading ? (
+                            <Alert variant="default" className="mb-3">
+                              <Sparkles className="w-4 h-4 mr-2 animate-spin" />
+                              <AlertTitle>
+                                Checking specifications...
+                              </AlertTitle>
+                            </Alert>
+                          ) : validationError ? (
+                            <Alert variant="destructive" className="mb-3">
+                              <AlertCircle className="w-4 h-4 mr-2" />
+                              <AlertTitle>Error loading validation</AlertTitle>
+                              <AlertDescription>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => refetchValidation()}
+                                >
+                                  Retry
+                                </Button>
+                              </AlertDescription>
+                            </Alert>
+                          ) : validation ? (
+                            validation.validation_passed ? (
+                              <Alert variant="default" className="mb-3">
+                                <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                <AlertTitle>All specifications met!</AlertTitle>
+                              </Alert>
+                            ) : (
+                              <Alert variant="default" className="mb-3">
+                                <AlertCircle className="w-4 h-4 mr-2 text-yellow-600" />
+                                <AlertTitle>
+                                  {validation.violations.length} specification
+                                  {validation.violations.length > 1 ? "s" : ""}{" "}
+                                  not met
+                                </AlertTitle>
+                              </Alert>
+                            )
+                          ) : null}
+                        </div>
+                        <Separator className="mb-2" />
+                        {/* Table of current values and violations */}
+                        <ScrollArea className="flex-1 min-h-0">
+                          <table className="min-w-full text-xs border rounded bg-background">
+                            <thead>
+                              <tr className="bg-muted">
+                                <th className="px-2 py-1 text-left font-medium">
+                                  Component
+                                </th>
+                                <th className="px-2 py-1 text-left font-medium">
+                                  Unit
+                                </th>
+                                <th className="px-2 py-1 text-left font-medium">
+                                  Value
+                                </th>
+                                <th className="px-2 py-1 text-left font-medium">
+                                  Status
+                                </th>
+                                <th className="px-2 py-1 text-left font-medium">
+                                  Action
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {validation && validation.current_values ? (
+                                Object.entries(
+                                  validation.current_values as Record<
+                                    string,
+                                    Record<
+                                      string,
+                                      {
+                                        value: number;
+                                        violates_constraint: boolean;
+                                      }
+                                    >
+                                  >
+                                ).flatMap(([component, units]) =>
+                                  Object.entries(units).map(([unit, info]) => {
+                                    const infoTyped = info as {
+                                      value: number;
+                                      violates_constraint: boolean;
+                                    };
+                                    return (
+                                      <tr
+                                        key={component + unit}
+                                        className="border-b hover:bg-accent/30 transition-colors"
+                                      >
+                                        <td className="px-2 py-1">
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <span className="underline decoration-dotted cursor-help">
+                                                {component}
+                                              </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              More info about {component}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </td>
+                                        <td className="px-2 py-1">{unit}</td>
+                                        <td className="px-2 py-1">
+                                          {infoTyped.value}
+                                        </td>
+                                        <td className="px-2 py-1">
+                                          {infoTyped.violates_constraint ? (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-red-100 text-red-700 font-semibold">
+                                              <AlertCircle className="w-3 h-3 mr-1" />
+                                              Violation
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-green-100 text-green-700 font-semibold">
+                                              <CheckCircle className="w-3 h-3 mr-1" />
+                                              OK
+                                            </span>
+                                          )}
+                                        </td>
+                                        <td className="px-2 py-1">
+                                          {infoTyped.violates_constraint && (
+                                            <Button
+                                              size="sm"
+                                              variant="outline"
+                                              onClick={() => {
+                                                /* TODO: implement go to module */
+                                              }}
+                                            >
+                                              Go to module
+                                            </Button>
+                                          )}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })
+                                )
+                              ) : (
+                                <tr>
+                                  <td
+                                    colSpan={5}
+                                    className="text-center py-4 text-muted-foreground"
+                                  >
+                                    No validation data. Add modules to start
+                                    validation.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </ScrollArea>
+                      </CardContent>
+                    </Card>
                   </aside>
                 </ResizablePanel>
                 <ResizableHandle withHandle />

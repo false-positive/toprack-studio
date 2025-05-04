@@ -217,3 +217,11 @@ export async function deleteActiveModule(
   );
   if (!response.ok) throw new Error("Failed to delete active module");
 }
+
+export async function fetchValidationResults(dataCenterId: number) {
+  const response = await fetch(
+    `${API_BASE_URL}/api/validate-component-values/?data_center=${dataCenterId}`
+  );
+  if (!response.ok) throw new Error("Failed to fetch validation results");
+  return response.json();
+}
