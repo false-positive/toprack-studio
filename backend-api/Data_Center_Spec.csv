@@ -1,7 +1,7 @@
 ID;Name;Below_Amount;Above_Amount;Minimize;Maximize;Unconstrained;Unit;Amount
-1;Server_Square;0;0;0;1;0;External_Network;-1
-1;Server_Square;1;0;0;0;0;Grid_Connection;3
-1;Server_Square;1;0;0;0;0;Water_Connection;1
+1;Server_Square;0;1;0;0;0;External_Network;50
+1;Server_Square;0;1;0;0;0;Grid_Connection;1
+1;Server_Square;0;1;0;0;0;Water_Connection;0
 1;Server_Square;1;0;0;0;0;Space_X;1000
 1;Server_Square;1;0;0;0;0;Space_Y;500
 1;Server_Square;0;1;0;0;0;Data_Storage;1000

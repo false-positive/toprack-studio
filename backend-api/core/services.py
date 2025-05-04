@@ -430,6 +430,12 @@ class DataCenterValueService:
         
         results = ModuleCalculationService.calculate_resource_usage(active_modules, data_center)
         
+        # Get all global values
+        global_values = {}
+        for dcv in DataCenterValue.objects.filter(data_center=data_center, component__isnull=True):
+            global_values[dcv.unit] = dcv.value
+        
+        # Get component-specific values
         component_values = {}
         for dcv in DataCenterValue.objects.filter(data_center=data_center).exclude(component=None):
             comp_id = str(dcv.component.id)
@@ -438,7 +444,7 @@ class DataCenterValueService:
             component_values[comp_id][dcv.unit] = dcv.value
         
         return {
-            'global_values': results,
+            'global_values': global_values,
             'component_values': component_values
         }
 
@@ -466,6 +472,13 @@ class DataCenterComponentService:
         if data_center is None:
             raise ValueError("data_center parameter is required")
         
+        from django.db.models import Q
+        active_modules = ActiveModule.objects.filter(
+            Q(data_center=data_center) | 
+            Q(data_center_component__data_center=data_center)
+        )
+        ModuleCalculationService.calculate_resource_usage(active_modules, data_center)
+        
         calculated_values = DataCenterValueService.force_recalculate_values(data_center)
         
         validation_passed = True
@@ -484,26 +497,30 @@ class DataCenterComponentService:
         
         global_values = calculated_values.get('global_values', {})
         component_values = calculated_values.get('component_values', {})
-        
+                
         for comp in components:
             logger.info(f"Validating component: {comp.name} (ID: {comp.id})")
             
             attributes = comp.attributes.all()
             
             comp_values = {}
-            if str(comp.id) in component_values:
-                comp_values = component_values[str(comp.id)]
-            
-            if not comp_values:
-                comp_values = global_values
+            comp_id = str(comp.id)
+            if comp_id in component_values:
+                comp_values = component_values[comp_id]
             
             logger.info(f"Component values: {comp_values}")
             
             for attr in attributes:
+                # Skip validation if unconstrained is true or amount is -1
+                if attr.unconstrained or attr.amount == -1:
+                    logger.info(f"Skipping validation for {comp.name}, {attr.unit} (unconstrained or amount is -1)")
+                    continue
+                
                 unit = attr.unit
                 amount = attr.amount
                 
-                current_value = comp_values.get(unit, global_values.get(unit, 0))
+                # Only use the component's actual values, don't fall back to global
+                current_value = comp_values.get(unit, 0)
                 
                 if unit in ['Space_X', 'Space_Y']:
                     total_space = data_center.space_x if unit == 'Space_X' else data_center.space_y
@@ -523,7 +540,7 @@ class DataCenterComponentService:
                         key = (comp.name, unit, "below")
                         unique_violations_dict[key] = message
                         logger.warning(message)
-                
+
                 if attr.above_amount:
                     if current_value < amount:
                         validation_passed = False
@@ -557,10 +574,18 @@ class ModuleCalculationService:
         if data_center is None:
             raise ValueError("data_center parameter is required")
         
-        results = {}
+        global_results = {}
+        component_results = {}
+        
+        logger.info(f"Calculating resource usage for {active_modules.count()} active modules in data center {data_center.name}")
         
         for active_module in active_modules:
             module = active_module.module
+            component = active_module.data_center_component
+            
+            # Initialize component in results if it has a component
+            if component and component.id not in component_results:
+                component_results[component.id] = {}
             
             attributes = module.attributes.all()
             
@@ -568,29 +593,105 @@ class ModuleCalculationService:
                 unit = attr.unit
                 amount = attr.amount
                 
-                if unit not in results:
-                    results[unit] = 0
+                # Initialize unit in global results if not present
+                if unit not in global_results:
+                    global_results[unit] = 0
                 
+                # Initialize unit in component results if applicable
+                if component and unit not in component_results[component.id]:
+                    component_results[component.id][unit] = 0
+                
+                # Update values based on input/output
                 if attr.is_input:
-                    results[unit] -= amount
+                    global_results[unit] -= amount
+                    if component:
+                        component_results[component.id][unit] -= amount
                 elif attr.is_output:
-                    results[unit] += amount
+                    global_results[unit] += amount
+                    if component:
+                        component_results[component.id][unit] += amount
+                
+                # Log the calculation for debugging
+                if component:
+                    logger.debug(f"Module {module.name} in component {component.name}: {unit} {'consumed' if attr.is_input else 'produced'} {amount}")
+                else:
+                    logger.debug(f"Module {module.name} (no component): {unit} {'consumed' if attr.is_input else 'produced'} {amount}")
         
-        for unit, value in results.items():
-            # First, try to update existing global values (where component is None)
-            updated = DataCenterValue.objects.filter(
-                data_center=data_center,
-                unit=unit,
-                component__isnull=True
-            ).update(value=value)
-            
-            # If no records were updated, create a new one
-            if not updated:
-                DataCenterValue.objects.create(
+        # Log the calculated results
+        logger.info(f"Global results: {global_results}")
+        logger.info(f"Component results: {component_results}")
+        
+        # Update global DataCenterValues
+        with transaction.atomic():
+            for unit, value in global_results.items():
+                values = DataCenterValue.objects.filter(
                     data_center=data_center,
                     unit=unit,
-                    value=value,
-                    component=None  # Explicitly set component to None for global values
+                    component__isnull=True
                 )
+                
+                if values.exists():
+                    # If multiple values exist, keep only one and delete the rest
+                    if values.count() > 1:
+                        primary_value = values.first()
+                        primary_value.value = value
+                        primary_value.save()
+                        
+                        # Delete duplicates
+                        values.exclude(id=primary_value.id).delete()
+                        logger.warning(f"Removed {values.count()-1} duplicate global DataCenterValue entries for {unit}")
+                    else:
+                        # Just update the single value
+                        values.update(value=value)
+                else:
+                    # Create a new value if none exists
+                    DataCenterValue.objects.create(
+                        data_center=data_center,
+                        unit=unit,
+                        value=value,
+                        component=None  # Explicitly set component to None for global values
+                    )
+            
+            # Update component-specific DataCenterValues
+            for component_id, units in component_results.items():
+                try:
+                    component = DataCenterComponent.objects.get(id=component_id)
+                    
+                    for unit, value in units.items():
+                        values = DataCenterValue.objects.filter(
+                            data_center=data_center,
+                            unit=unit,
+                            component=component
+                        )
+                        
+                        if values.exists():
+                            # If multiple values exist, keep only one and delete the rest
+                            if values.count() > 1:
+                                primary_value = values.first()
+                                primary_value.value = value
+                                primary_value.save()
+                                
+                                # Delete duplicates
+                                values.exclude(id=primary_value.id).delete()
+                                logger.warning(f"Removed {values.count()-1} duplicate component DataCenterValue entries for {component.name}, {unit}")
+                            else:
+                                # Just update the single value
+                                values.update(value=value)
+                        else:
+                            # Create a new value if none exists
+                            DataCenterValue.objects.create(
+                                data_center=data_center,
+                                unit=unit,
+                                value=value,
+                                component=component
+                            )
+                        
+                        # Log the update for debugging
+                        logger.debug(f"Updated component {component.name} {unit} value to {value}")
+                except DataCenterComponent.DoesNotExist:
+                    logger.error(f"Component with ID {component_id} does not exist")
         
-        return results
+        return {
+            'global_values': global_results,
+            'component_values': component_results
+        }
